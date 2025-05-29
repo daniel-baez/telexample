@@ -44,6 +44,10 @@ class TelemetryControllerTest {
         }
     }
 
+    /**
+     * Tests that posting telemetry data without a deviceId returns a 400 Bad Request.
+     * This verifies that the API enforces the required deviceId field.
+     */
     @Test
     void testPostTelemetryWithMissingDeviceId() throws Exception {
         Map<String, Object> telemetryData = new HashMap<>();
@@ -57,6 +61,10 @@ class TelemetryControllerTest {
                 .andExpect(status().isBadRequest());
     }
 
+    /**
+     * Tests that posting valid telemetry data with all required fields returns a 201 Created
+     * and includes an ID in the response. This verifies the successful creation of telemetry records.
+     */
     @Test
     void testPostTelemetryWithValidData() throws Exception {
         Map<String, Object> telemetryData = new HashMap<>();
@@ -73,12 +81,23 @@ class TelemetryControllerTest {
         
     }
 
+    /**
+     * Tests that requesting the latest telemetry for a non-existent device returns a 404 Not Found.
+     * This verifies proper error handling for unknown devices.
+     */
     @Test
     void testGetLatestTelemetryWhenNoData() throws Exception {
         mockMvc.perform(get("/devices/nonexistent/telemetry/latest"))
                 .andExpect(status().isNotFound());
     }
 
+    /**
+     * Tests the retrieval of the latest telemetry data for a device after posting multiple records.
+     * Verifies that:
+     * 1. Multiple telemetry records can be posted for the same device
+     * 2. The latest endpoint returns the most recent record based on timestamp
+     * 3. The returned data matches the last posted record's values
+     */
     @Test
     void testGetLatestTelemetryAfterTwoPosts() throws Exception {
         LocalDateTime t1 = LocalDateTime.now().minusHours(1);
