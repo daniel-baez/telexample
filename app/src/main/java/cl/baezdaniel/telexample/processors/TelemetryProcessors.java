@@ -49,7 +49,7 @@ public class TelemetryProcessors {
             Thread.sleep(100); // Simulate processing time
             
         } catch (Exception e) {
-            logger.error("Error in anomaly detection for device {}: {}", deviceId, e.getMessage());
+            logger.error("Error in anomaly detection for device {}: {}", deviceId, e.getMessage(), e);
         }
     }
     
