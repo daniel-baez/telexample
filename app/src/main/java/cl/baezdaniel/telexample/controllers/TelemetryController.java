@@ -1,6 +1,7 @@
 package cl.baezdaniel.telexample.controllers;
 
 import cl.baezdaniel.telexample.entities.Telemetry;
+import cl.baezdaniel.telexample.events.TelemetryEvent;
 import cl.baezdaniel.telexample.repositories.TelemetryRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,11 +26,19 @@ public class TelemetryController {
     @Autowired
     private TelemetryRepository telemetryRepository;
 
+    @Autowired
+    private ApplicationEventPublisher eventPublisher;
+
     @PostMapping("/telemetry")
     public ResponseEntity<Map<String, Object>> createTelemetry(@Valid @RequestBody Telemetry telemetry) {
         logger.info("Creating telemetry for device: {}", telemetry.getDeviceId());
         
         Telemetry savedTelemetry = telemetryRepository.save(telemetry);
+        
+        // 🚀 Publish event for async processing
+        TelemetryEvent event = new TelemetryEvent(this, savedTelemetry);
+        eventPublisher.publishEvent(event);
+        logger.info("📡 Published telemetry event for device: {}", savedTelemetry.getDeviceId());
         
         Map<String, Object> response = new HashMap<>();
         response.put("id", savedTelemetry.getId());
