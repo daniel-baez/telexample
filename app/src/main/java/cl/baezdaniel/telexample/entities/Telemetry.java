@@ -1,4 +1,4 @@
-package cl.baezdaniel.telexample;
+package cl.baezdaniel.telexample.entities;
 
 import jakarta.persistence.*;
 import jakarta.validation.constraints.NotBlank;

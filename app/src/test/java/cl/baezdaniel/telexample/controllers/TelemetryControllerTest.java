@@ -1,5 +1,6 @@
-package cl.baezdaniel.telexample;
+package cl.baezdaniel.telexample.controllers;
 
+import cl.baezdaniel.telexample.entities.Telemetry;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
