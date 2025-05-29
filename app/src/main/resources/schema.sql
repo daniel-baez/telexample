@@ -1,0 +1,7 @@
+CREATE TABLE IF NOT EXISTS telemetry (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    device_id VARCHAR(255) NOT NULL,
+    latitude DOUBLE NOT NULL,
+    longitude DOUBLE NOT NULL,
+    timestamp DATETIME NOT NULL
+); 
