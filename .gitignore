@@ -3,3 +3,11 @@
 
 # Ignore Gradle build output directory
 build
+
+# Ignore SQLite database files
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+app/telemetry.db
+app/test.db
