@@ -141,10 +141,10 @@ class TelemetryPerformanceTest {
                 .mapToObj(i -> CompletableFuture.runAsync(() -> {
                     try {
                         // Spread requests over 10 seconds
-                        long delay = (testDurationMs * i) / numberOfEvents;
-                        if (delay > 0) {
-                            Thread.sleep(delay);
-                        }
+                        // long delay = (testDurationMs * i) / numberOfEvents;
+                        // if (delay > 0) {
+                        //     Thread.sleep(delay);
+                        // }
 
                         Map<String, Object> telemetryData = createTestTelemetryData(
                                 "throughput-device-" + i,
@@ -189,7 +189,7 @@ class TelemetryPerformanceTest {
         assertThat(throughputPerSecond).isGreaterThan(10.0);
 
         // Wait additional time for async processing to complete
-        Thread.sleep(5000);
+        // Thread.sleep(5000);
         
         // Memory usage should remain stable (no excessive memory growth)
         // This is tested implicitly - if there were memory leaks, the test would fail

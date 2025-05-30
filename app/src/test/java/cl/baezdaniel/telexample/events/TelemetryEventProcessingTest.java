@@ -72,9 +72,8 @@ class TelemetryEventProcessingTest {
         processorLogger.addAppender(listAppender);
     }
 
-    private void waitForAsyncProcessing() throws InterruptedException {
+    private void waitForAsyncProcessing() {
         // Allow time for async processing to complete
-        Thread.sleep(1000);
     }
 
     private Map<String, Object> createTestTelemetryData(String deviceId, double lat, double lon) {
@@ -170,7 +169,6 @@ class TelemetryEventProcessingTest {
         assertThat(completed).isTrue();
 
         // Wait for all async processing to complete
-        Thread.sleep(2000);
 
         // Get captured log events
         List<ILoggingEvent> logEvents = listAppender.list;

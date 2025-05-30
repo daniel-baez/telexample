@@ -159,7 +159,6 @@ class TelemetryEventPublishingTest {
         }
 
 
-        Thread.sleep(50); // Brief pause for async events
         // Verify all events were published
         List<TelemetryEvent> capturedEvents = testEventListener.getCapturedEvents();
         assertThat(capturedEvents).hasSize(numberOfEvents);

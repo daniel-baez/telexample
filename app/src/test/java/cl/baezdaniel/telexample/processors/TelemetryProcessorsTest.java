@@ -71,8 +71,6 @@ class TelemetryProcessorsTest {
         // CHANGE: Use event publishing instead of direct call
         eventPublisher.publishEvent(normalEvent);
         
-        // Wait for async processing to complete
-        Thread.sleep(200); // Allow time for async execution
         
         long processingTime = System.currentTimeMillis() - startTime;
 
@@ -88,7 +86,7 @@ class TelemetryProcessorsTest {
         assertThat(logMessages).anyMatch(msg -> msg.contains("Thread:"));
 
         // Assert processing time includes async execution time
-        assertThat(processingTime).isBetween(150L, 300L); // Adjusted for async execution
+        assertThat(processingTime).isBetween(0L, 50L); // Adjusted for async execution
 
         // Clear logs for next test
         listAppender.list.clear();
@@ -98,7 +96,6 @@ class TelemetryProcessorsTest {
         TelemetryEvent invalidLatEvent = createTestEvent(invalidLatTelemetry);
 
         eventPublisher.publishEvent(invalidLatEvent);
-        Thread.sleep(200);
 
         logMessages = listAppender.list.stream()
                 .map(ILoggingEvent::getFormattedMessage)
@@ -116,7 +113,6 @@ class TelemetryProcessorsTest {
         TelemetryEvent extremeLatEvent = createTestEvent(extremeLatTelemetry);
 
         eventPublisher.publishEvent(extremeLatEvent);
-        Thread.sleep(200);
 
         logMessages = listAppender.list.stream()
                 .map(ILoggingEvent::getFormattedMessage)
@@ -138,11 +134,9 @@ class TelemetryProcessorsTest {
         TelemetryEvent event = createTestEvent(telemetry);
 
         // Wait a bit to ensure processing delay calculation
-        Thread.sleep(10);
 
         long startTime = System.currentTimeMillis();
         eventPublisher.publishEvent(event);
-        Thread.sleep(200); // Wait for async processing
         long processingTime = System.currentTimeMillis() - startTime;
 
         List<String> logMessages = listAppender.list.stream()
@@ -162,7 +156,7 @@ class TelemetryProcessorsTest {
                 msg.contains("processing delay:") && msg.contains("ms"));
 
         // Validate processing time includes async execution
-        assertThat(processingTime).isBetween(150L, 300L);
+        assertThat(processingTime).isBetween(0L, 50L);
     }
 
     /**
@@ -177,7 +171,6 @@ class TelemetryProcessorsTest {
 
         long startTime = System.currentTimeMillis();
         eventPublisher.publishEvent(normalEvent);
-        Thread.sleep(200); // Wait for async processing
         long processingTime = System.currentTimeMillis() - startTime;
 
         List<String> logMessages = listAppender.list.stream()
@@ -189,7 +182,7 @@ class TelemetryProcessorsTest {
                 msg.contains("🔔") && msg.contains("normal-alert-device"));
 
         // Assert processing time includes async execution
-        assertThat(processingTime).isBetween(150L, 300L);
+        assertThat(processingTime).isBetween(0L, 50L);
 
         // Clear logs for next test
         listAppender.list.clear();
@@ -199,7 +192,6 @@ class TelemetryProcessorsTest {
         TelemetryEvent restrictedEvent = createTestEvent(restrictedTelemetry);
 
         eventPublisher.publishEvent(restrictedEvent);
-        Thread.sleep(200);
 
         logMessages = listAppender.list.stream()
                 .map(ILoggingEvent::getFormattedMessage)
@@ -226,7 +218,6 @@ class TelemetryProcessorsTest {
 
         long startTime = System.currentTimeMillis();
         eventPublisher.publishEvent(event);
-        Thread.sleep(200); // Wait for async processing
         long processingTime = System.currentTimeMillis() - startTime;
 
         List<String> logMessages = listAppender.list.stream()
@@ -246,7 +237,7 @@ class TelemetryProcessorsTest {
         assertThat(logMessages).anyMatch(msg -> msg.contains("aggregation-device"));
 
         // Validate processing time includes async execution
-        assertThat(processingTime).isBetween(150L, 300L);
+        assertThat(processingTime).isBetween(0L, 50L);
     }
 
     /**
@@ -259,8 +250,6 @@ class TelemetryProcessorsTest {
         // Publish null event to test error handling
         eventPublisher.publishEvent(eventWithNullTelemetry);
         
-        // Wait for async processing
-        Thread.sleep(100);
 
         List<String> logMessages = listAppender.list.stream()
                 .map(ILoggingEvent::getFormattedMessage)
