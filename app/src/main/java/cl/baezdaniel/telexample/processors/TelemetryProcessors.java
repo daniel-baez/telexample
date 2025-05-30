@@ -23,6 +23,11 @@ public class TelemetryProcessors {
     @EventListener
     @Async("telemetryTaskExecutor")
     public void detectAnomalies(TelemetryEvent event) {
+        if (event == null || event.getTelemetry() == null) {
+            logger.error("Error in anomaly detection: Received null telemetry event");
+            return;
+        }
+        
         Telemetry telemetry = event.getTelemetry();
         String deviceId = telemetry.getDeviceId();
         
@@ -46,7 +51,6 @@ public class TelemetryProcessors {
                 logger.warn("🚨 ANOMALY DETECTED: Extreme latitude for device {}: {}", deviceId, lat);
             }
             
-            Thread.sleep(100); // Simulate processing time
             
         } catch (Exception e) {
             logger.error("Error in anomaly detection for device {}: {}", deviceId, e.getMessage(), e);
@@ -59,6 +63,11 @@ public class TelemetryProcessors {
     @EventListener
     @Async("telemetryTaskExecutor")
     public void updateStatistics(TelemetryEvent event) {
+        if (event == null || event.getTelemetry() == null) {
+            logger.error("Error updating statistics: Received null telemetry event");
+            return;
+        }
+        
         Telemetry telemetry = event.getTelemetry();
         String deviceId = telemetry.getDeviceId();
         
@@ -78,7 +87,6 @@ public class TelemetryProcessors {
             logger.info("📈 Statistics updated for device {}, processing delay: {}ms", 
                 deviceId, processingDelay);
             
-            Thread.sleep(50); // Simulate processing time
             
         } catch (Exception e) {
             logger.error("Error updating statistics for device {}: {}", deviceId, e.getMessage());
@@ -91,6 +99,11 @@ public class TelemetryProcessors {
     @EventListener
     @Async("telemetryTaskExecutor")
     public void processAlerts(TelemetryEvent event) {
+        if (event == null || event.getTelemetry() == null) {
+            logger.error("Error processing alerts: Received null telemetry event");
+            return;
+        }
+        
         Telemetry telemetry = event.getTelemetry();
         String deviceId = telemetry.getDeviceId();
         
@@ -109,7 +122,6 @@ public class TelemetryProcessors {
                 // In real implementation: send push notification, email, SMS, etc.
             }
             
-            Thread.sleep(75); // Simulate processing time
             
         } catch (Exception e) {
             logger.error("Error processing alerts for device {}: {}", deviceId, e.getMessage());
@@ -122,6 +134,11 @@ public class TelemetryProcessors {
     @EventListener
     @Async("telemetryTaskExecutor")
     public void aggregateData(TelemetryEvent event) {
+        if (event == null || event.getTelemetry() == null) {
+            logger.error("Error aggregating data: Received null telemetry event");
+            return;
+        }
+        
         Telemetry telemetry = event.getTelemetry();
         String deviceId = telemetry.getDeviceId();
         
@@ -138,7 +155,6 @@ public class TelemetryProcessors {
             logger.info("📍 Data aggregated for device {} at coordinates: [{}, {}]", 
                 deviceId, telemetry.getLatitude(), telemetry.getLongitude());
             
-            Thread.sleep(25); // Simulate processing time
             
         } catch (Exception e) {
             logger.error("Error aggregating data for device {}: {}", deviceId, e.getMessage());
