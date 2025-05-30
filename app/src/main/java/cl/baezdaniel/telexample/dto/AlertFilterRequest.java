@@ -21,6 +21,16 @@ public class AlertFilterRequest {
         this.startDate = startDate;
         this.endDate = endDate;
     }
+
+    public boolean isEmpty() {
+        return (deviceId == null || deviceId.isEmpty()) && 
+               (alertType == null || alertType.isEmpty()) && 
+               (severity == null || severity.isEmpty()) && 
+               startDate == null && 
+               endDate == null;
+
+
+    }
     
     // Getters and Setters
     public String getDeviceId() {

@@ -243,7 +243,7 @@ public class AlertService {
      * Get alerts with filter (used by tests and controller)
      */
     public Page<Alert> getAlertsWithFilter(AlertFilterRequest filter, Pageable pageable) {
-        if (filter == null) {
+        if (filter == null || filter.isEmpty()) {
             return getAllAlerts(pageable);
         }
 
