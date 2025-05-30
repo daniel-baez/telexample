@@ -22,6 +22,10 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
     implementation 'org.springframework.boot:spring-boot-starter-validation'
     
+    // Spring Retry for database concurrency handling
+    implementation 'org.springframework.retry:spring-retry'
+    implementation 'org.springframework:spring-aspects'
+    
     // SQLite database
     implementation 'org.xerial:sqlite-jdbc:3.44.1.0'
     implementation 'org.hibernate.orm:hibernate-community-dialects:6.4.0.Final'

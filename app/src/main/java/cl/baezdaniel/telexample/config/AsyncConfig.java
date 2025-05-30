@@ -7,6 +7,7 @@ import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
 import java.util.concurrent.Executor;
+import java.util.concurrent.ThreadPoolExecutor;
 
 /**
  * Configuration for async telemetry event processing.
@@ -34,6 +35,12 @@ public class AsyncConfig {
         executor.setThreadNamePrefix("TelemetryProcessor-");
         executor.setWaitForTasksToCompleteOnShutdown(true);
         executor.setAwaitTerminationSeconds(30);
+        
+        // Use CallerRunsPolicy to provide natural backpressure
+        // When thread pool is saturated, tasks run in the caller's thread
+        // This prevents task rejection while providing load balancing
+        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
+        
         executor.initialize();
         return executor;
     }
