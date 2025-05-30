@@ -8,7 +8,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.dao.DataAccessException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -16,7 +15,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.sql.SQLException;
 import java.time.LocalDateTime;
 import java.util.Optional;
 
@@ -39,34 +37,7 @@ public class AlertService {
             throw new IllegalArgumentException("Alert creation request cannot be null");
         }
         
-        int maxAttempts = 3;
-        long initialDelay = 50; // milliseconds
-        
-        for (int attempt = 1; attempt <= maxAttempts; attempt++) {
-            try {
-                return createAlertInternal(request);
-            } catch (DataAccessException e) {
-                if (attempt == maxAttempts) {
-                    logger.error("Failed to create alert for device {} after {} attempts: {}", 
-                        request.getDeviceId(), maxAttempts, e.getMessage());
-                    throw e;
-                }
-                
-                long delay = initialDelay * attempt; // Simple exponential backoff
-                logger.warn("Retry attempt {} for alert creation on device {}: {} (retrying in {}ms)", 
-                    attempt, request.getDeviceId(), e.getMessage(), delay);
-                
-                try {
-                    Thread.sleep(delay);
-                } catch (InterruptedException ie) {
-                    Thread.currentThread().interrupt();
-                    throw new RuntimeException("Alert creation interrupted", ie);
-                }
-            }
-        }
-        
-        // Should never reach here due to exception handling above
-        throw new RuntimeException("Unexpected error in alert creation retry logic");
+        return createAlertInternal(request);
     }
     
     @Transactional

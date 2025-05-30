@@ -131,13 +131,6 @@ class TelemetryEventProcessingTest {
                 .andExpect(jsonPath("$.id").isNumber())
                 .andExpect(jsonPath("$.deviceId").value("test-device-001"));
 
-        // Wait for async processing completion
-        // waitForAsyncProcessing();
-        // Thread.sleep(5000);
-
-        // Get reference to the executor and wait for completion
-        // ThreadPoolTaskExecutor executor = (ThreadPoolTaskExecutor) applicationContext.getBean("telemetryTaskExecutor");
-        // executor.getThreadPoolExecutor().awaitTermination(5, TimeUnit.SECONDS);
         waitForAsyncProcessingUsingAwaitility();
 
         // Verify alert was created (indicates alert processor executed)
