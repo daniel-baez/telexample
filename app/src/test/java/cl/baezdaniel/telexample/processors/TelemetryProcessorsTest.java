@@ -38,7 +38,7 @@ class TelemetryProcessorsTest {
     private Logger processorLogger;
     
     // Add fields for async synchronization
-    private final Object logListLock = new Object();
+    // private final Object logListLock = new Object();
 
     @BeforeEach
     void setUp() {
@@ -96,11 +96,11 @@ class TelemetryProcessorsTest {
 
         // Thread-safe log collection
         List<String> logMessages;
-        synchronized (logListLock) {
+        // synchronized (logListLock) {
             logMessages = listAppender.list.stream()
                     .map(ILoggingEvent::getFormattedMessage)
                     .collect(Collectors.toList());
-        }
+        // }
 
         // Verify normal processing log with 🔍 emoji
         assertThat(logMessages).anyMatch(msg -> 
@@ -125,11 +125,11 @@ class TelemetryProcessorsTest {
         waitForAsyncProcessing();
 
         // Thread-safe log collection
-        synchronized (logListLock) {
+        // synchronized (logListLock) {
             logMessages = listAppender.list.stream()
                     .map(ILoggingEvent::getFormattedMessage)
                     .collect(Collectors.toList());
-        }
+        // }
 
         // Expect 🚨 ANOMALY DETECTED log for invalid coordinates
         assertThat(logMessages).anyMatch(msg -> 
@@ -148,11 +148,11 @@ class TelemetryProcessorsTest {
         waitForAsyncProcessing();
 
         // Thread-safe log collection
-        synchronized (logListLock) {
+        // synchronized (logListLock) {
             logMessages = listAppender.list.stream()
                     .map(ILoggingEvent::getFormattedMessage)
                     .collect(Collectors.toList());
-        }
+        // }
 
         // Expect 🚨 ANOMALY DETECTED log for extreme latitude
         assertThat(logMessages).anyMatch(msg -> 
@@ -179,11 +179,11 @@ class TelemetryProcessorsTest {
 
         // Thread-safe log collection
         List<String> logMessages;
-        synchronized (logListLock) {
+        // synchronized (logListLock) {
             logMessages = listAppender.list.stream()
                     .map(ILoggingEvent::getFormattedMessage)
                     .collect(Collectors.toList());
-        }
+        // }
 
         // Verify 📊 emoji in logs with correct thread name
         assertThat(logMessages).anyMatch(msg -> 
@@ -221,11 +221,11 @@ class TelemetryProcessorsTest {
 
         // Thread-safe log collection
         List<String> logMessages;
-        synchronized (logListLock) {
+        // synchronized (logListLock) {
             logMessages = listAppender.list.stream()
                     .map(ILoggingEvent::getFormattedMessage)
                     .collect(Collectors.toList());
-        }
+        // }
 
         // Expect normal 🔔 processing log
         assertThat(logMessages).anyMatch(msg -> 
@@ -247,11 +247,11 @@ class TelemetryProcessorsTest {
         waitForAsyncProcessing();
 
         // Thread-safe log collection
-        synchronized (logListLock) {
+        // synchronized (logListLock) {
             logMessages = listAppender.list.stream()
                     .map(ILoggingEvent::getFormattedMessage)
                     .collect(Collectors.toList());
-        }
+        // }
 
         // Expect 🚨 ALERT log for restricted area
         assertThat(logMessages).anyMatch(msg -> 
@@ -282,11 +282,11 @@ class TelemetryProcessorsTest {
 
         // Thread-safe log collection
         List<String> logMessages;
-        synchronized (logListLock) {
+        // synchronized (logListLock) {
             logMessages = listAppender.list.stream()
                     .map(ILoggingEvent::getFormattedMessage)
                     .collect(Collectors.toList());
-        }
+        // }
 
         // Verify 🗺️ emoji in processing log
         assertThat(logMessages).anyMatch(msg -> 
@@ -319,11 +319,11 @@ class TelemetryProcessorsTest {
 
         // Thread-safe log collection
         List<String> logMessages;
-        synchronized (logListLock) {
+        // synchronized (logListLock) {
             logMessages = listAppender.list.stream()
                     .map(ILoggingEvent::getFormattedMessage)
                     .collect(Collectors.toList());
-        }
+        // }
 
         // Should have error logs for null telemetry
         long errorCount = logMessages.stream()
