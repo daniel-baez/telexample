@@ -1,0 +1,4 @@
+read promp in file {} fork to a new branch, commit at the end.
+
+for the commit message consider a nice short form thought for the github PR title.
+a few lines later (let's think 4 lines later) you can add more details
