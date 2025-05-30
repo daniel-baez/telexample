@@ -34,6 +34,7 @@ public class TelemetryController {
         logger.info("Creating telemetry for device: {}", telemetry.getDeviceId());
         
         Telemetry savedTelemetry = telemetryRepository.save(telemetry);
+        System.out.println("savedTelemetry: " + savedTelemetry);
         
         // 🚀 Publish event for async processing
         TelemetryEvent event = new TelemetryEvent(this, savedTelemetry);

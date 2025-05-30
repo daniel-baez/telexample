@@ -4,10 +4,9 @@
 # Ignore Gradle build output directory
 build
 
-# Ignore SQLite database files
+# Ignore H2 database files and data directory
+/data/
 *.db
-*.db-journal
-*.db-wal
-*.db-shm
-app/telemetry.db
-app/test.db
+*.trace.db
+*.lock.db
+app/data/

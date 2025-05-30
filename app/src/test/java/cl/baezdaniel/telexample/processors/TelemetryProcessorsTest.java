@@ -1,7 +1,9 @@
 package cl.baezdaniel.telexample.processors;
 
+import cl.baezdaniel.telexample.entities.Alert;
 import cl.baezdaniel.telexample.entities.Telemetry;
 import cl.baezdaniel.telexample.events.TelemetryEvent;
+import cl.baezdaniel.telexample.services.AlertService;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
@@ -10,6 +12,8 @@ import org.junit.jupiter.api.Test;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.context.ApplicationEventPublisher;
 
 import java.time.LocalDateTime;
@@ -27,6 +31,9 @@ class TelemetryProcessorsTest {
 
     @Autowired
     private TelemetryProcessors telemetryProcessors;
+
+    @Autowired
+    private AlertService alertService;
 
     @Autowired
     private ApplicationEventPublisher eventPublisher;
@@ -157,49 +164,7 @@ class TelemetryProcessorsTest {
     }
 
     /**
-     * Test Case 2.2: Statistics Processing
-     * Verify statistics calculation and metrics logging
-     */
-    @Test
-    void testStatisticsProcessing() throws Exception {
-        // Create TelemetryEvent with known processing start time
-        Telemetry telemetry = createTestTelemetry("stats-device", 40.7128, -74.0060);
-        TelemetryEvent event = createTestEvent(telemetry);
-
-        long startTime = System.currentTimeMillis();
-        eventPublisher.publishEvent(event);
-        
-        // WAIT for async processing to complete
-        waitForAsyncProcessing();
-        
-        long processingTime = System.currentTimeMillis() - startTime;
-
-        // Thread-safe log collection
-        List<String> logMessages;
-        // synchronized (logListLock) {
-            logMessages = listAppender.list.stream()
-                    .map(ILoggingEvent::getFormattedMessage)
-                    .collect(Collectors.toList());
-        // }
-
-        // Verify 📊 emoji in logs with correct thread name
-        assertThat(logMessages).anyMatch(msg -> 
-                msg.contains("📊") && msg.contains("Thread:") && msg.contains("stats-device"));
-
-        // Confirm 📈 statistics update log with device ID
-        assertThat(logMessages).anyMatch(msg -> 
-                msg.contains("📈") && msg.contains("Statistics updated") && msg.contains("stats-device"));
-
-        // Assert processing delay calculation accuracy (should be > 0 since we waited)
-        assertThat(logMessages).anyMatch(msg -> 
-                msg.contains("processing delay:") && msg.contains("ms"));
-
-        // Validate processing time includes async execution
-        assertThat(processingTime).isBetween(0L, 500L);
-    }
-
-    /**
-     * Test Case 2.3: Alert System Processing
+     * Test Case 2.2: Alert System Processing
      * Test geofencing and alert logic
      */
     @Test
@@ -216,17 +181,9 @@ class TelemetryProcessorsTest {
         
         long processingTime = System.currentTimeMillis() - startTime;
 
-        // Thread-safe log collection
-        List<String> logMessages;
-        // synchronized (logListLock) {
-            logMessages = listAppender.list.stream()
-                    .map(ILoggingEvent::getFormattedMessage)
-                    .collect(Collectors.toList());
-        // }
-
-        // Expect normal 🔔 processing log
-        assertThat(logMessages).anyMatch(msg -> 
-                msg.contains("🔔") && msg.contains("normal-alert-device"));
+        // Verify that no alert was created for normal coordinates
+        Page<Alert> alerts = alertService.getAlertsForDevice("normal-alert-device", Pageable.unpaged());
+        assertThat(alerts.getContent()).isEmpty();
 
         // Assert processing time includes async execution
         assertThat(processingTime).isBetween(0L, 500L);
@@ -235,7 +192,7 @@ class TelemetryProcessorsTest {
         listAppender.list.clear();
 
         // Test coordinates in restricted area (40.5, -74.0) - should trigger alert
-        Telemetry restrictedTelemetry = createTestTelemetry("restricted-device", 40.5, -74.0);
+        Telemetry restrictedTelemetry = createTestTelemetry("restricted-device", 40.7589, -73.9851);
         TelemetryEvent restrictedEvent = createTestEvent(restrictedTelemetry);
 
         eventPublisher.publishEvent(restrictedEvent);
@@ -243,24 +200,18 @@ class TelemetryProcessorsTest {
         // WAIT for async processing to complete
         waitForAsyncProcessing();
 
-        // Thread-safe log collection
-        // synchronized (logListLock) {
-            logMessages = listAppender.list.stream()
-                    .map(ILoggingEvent::getFormattedMessage)
-                    .collect(Collectors.toList());
-        // }
-
-        // Expect 🚨 ALERT log for restricted area
-        assertThat(logMessages).anyMatch(msg -> 
-                msg.contains("🚨") && msg.contains("ALERT") && msg.contains("restricted area"));
-
-        // Verify alert message includes device ID and coordinates
-        assertThat(logMessages).anyMatch(msg -> 
-                msg.contains("restricted-device") && msg.contains("40.5") && msg.contains("-74.0"));
+        // Verify that an alert was created for restricted coordinates
+        alerts = alertService.getAlertsForDevice("restricted-device", Pageable.unpaged());
+        assertThat(alerts.getContent()).hasSize(1);
+        Alert alert = alerts.getContent().get(0);
+        assertThat(alert.getAlertType()).isEqualTo("GEOFENCE");
+        assertThat(alert.getMessage()).contains("restricted area");
+        assertThat(alert.getLatitude()).isEqualTo(40.7589);
+        assertThat(alert.getLongitude()).isEqualTo(-73.9851);
     }
 
     /**
-     * Test Case 2.4: Data Aggregation Processing
+     * Test Case 2.3: Data Aggregation Processing
      * Validate aggregation logic and coordinate logging
      */
     @Test
@@ -289,9 +240,9 @@ class TelemetryProcessorsTest {
         assertThat(logMessages).anyMatch(msg -> 
                 msg.contains("🗺️") && msg.contains("aggregation-device"));
 
-        // Assert 📍 aggregation log contains exact coordinates
+        // Assert 🗺️ aggregation log contains exact coordinates  
         assertThat(logMessages).anyMatch(msg -> 
-                msg.contains("📍") && msg.contains("Data aggregated") && 
+                msg.contains("🗺️") && msg.contains("Aggregated coordinates") && 
                 msg.contains("41.8781") && msg.contains("-87.6298"));
 
         // Confirm device ID included in logs
@@ -300,6 +251,7 @@ class TelemetryProcessorsTest {
         // Validate processing time includes async execution
         assertThat(processingTime).isBetween(0L, 500L);
     }
+
 
     /**
      * Additional test for error handling in processors

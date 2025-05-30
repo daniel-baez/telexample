@@ -27,6 +27,7 @@ public class AsyncConfig {
     
     @Bean(name = "telemetryTaskExecutor")
     public Executor telemetryTaskExecutor() {
+        // Original async executor configuration
         ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
         executor.setCorePoolSize(corePoolSize);
         executor.setMaxPoolSize(maxPoolSize);
@@ -35,6 +36,16 @@ public class AsyncConfig {
         executor.setWaitForTasksToCompleteOnShutdown(true);
         executor.setAwaitTerminationSeconds(30);
         executor.initialize();
+
         return executor;
+
+
+        // For testing: Execute everything in the current thread
+        // return new Executor() {
+        //     @Override
+        //     public void execute(Runnable command) {
+        //         command.run();
+        //     }
+        // };
     }
 } 
