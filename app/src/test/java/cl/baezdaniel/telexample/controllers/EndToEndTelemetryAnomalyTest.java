@@ -29,6 +29,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * These tests fill the gap identified in the test suite where no tests combine:
  * 1. HTTP POST to /telemetry with invalid coordinates
  * 2. HTTP GET from /api/alerts to verify ANOMALY alert creation
+ * 
+ * All requests use proper API key authentication.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -43,6 +45,9 @@ class EndToEndTelemetryAnomalyTest {
 
     @Autowired
     private DataSource dataSource;
+
+    // API key for authentication - using one of the configured keys
+    private static final String API_KEY = "Bearer telemetry-api-key-123";
 
     @BeforeEach
     void setUp() throws Exception {
@@ -76,10 +81,10 @@ class EndToEndTelemetryAnomalyTest {
      * Test Case 1: Invalid Latitude (> 90) - End-to-End HTTP Flow
      * 
      * This test verifies the complete pipeline:
-     * 1. POST invalid telemetry data (lat = 95.0) via HTTP endpoint
+     * 1. POST invalid telemetry data (lat = 95.0) via HTTP endpoint with authentication
      * 2. Verify telemetry is stored (returns 201 Created)
      * 3. Wait for async anomaly detection processing
-     * 4. GET alerts via HTTP endpoint to verify ANOMALY alert was created
+     * 4. GET alerts via HTTP endpoint with authentication to verify ANOMALY alert was created
      */
     @Test
     void testInvalidLatitudeCreatesAnomalyAlert_EndToEnd() throws Exception {
@@ -87,10 +92,11 @@ class EndToEndTelemetryAnomalyTest {
         double invalidLatitude = 95.0; // Invalid: latitude cannot be > 90
         double validLongitude = -74.0060;
 
-        // Step 1: POST invalid telemetry data via HTTP
+        // Step 1: POST invalid telemetry data via HTTP with authentication
         Map<String, Object> telemetryData = createTelemetryPayload(deviceId, invalidLatitude, validLongitude);
 
         mockMvc.perform(post("/telemetry")
+                .header("Authorization", API_KEY)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(telemetryData)))
                 .andExpect(status().isCreated())
@@ -99,8 +105,9 @@ class EndToEndTelemetryAnomalyTest {
         // Step 2: Wait for async anomaly detection processing
         waitForAsyncProcessing();
 
-        // Step 3: GET alerts via HTTP to verify ANOMALY alert was created
-        mockMvc.perform(get("/api/alerts/{deviceId}", deviceId))
+        // Step 3: GET alerts via HTTP with authentication to verify ANOMALY alert was created
+        mockMvc.perform(get("/api/alerts/{deviceId}", deviceId)
+                .header("Authorization", API_KEY))
                 .andExpect(status().isOk())
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON))
                 .andExpect(jsonPath("$.content").isArray())
@@ -118,8 +125,8 @@ class EndToEndTelemetryAnomalyTest {
      * Test Case 2: Invalid Longitude (< -180) - End-to-End HTTP Flow
      * 
      * Tests the complete pipeline for longitude validation:
-     * 1. POST telemetry with invalid longitude (-200.0)
-     * 2. Verify ANOMALY alert creation via HTTP GET
+     * 1. POST telemetry with invalid longitude (-200.0) with authentication
+     * 2. Verify ANOMALY alert creation via HTTP GET with authentication
      */
     @Test
     void testInvalidLongitudeCreatesAnomalyAlert_EndToEnd() throws Exception {
@@ -127,10 +134,11 @@ class EndToEndTelemetryAnomalyTest {
         double validLatitude = 40.7128;
         double invalidLongitude = -200.0; // Invalid: longitude cannot be < -180
 
-        // Step 1: POST invalid telemetry data via HTTP
+        // Step 1: POST invalid telemetry data via HTTP with authentication
         Map<String, Object> telemetryData = createTelemetryPayload(deviceId, validLatitude, invalidLongitude);
 
         mockMvc.perform(post("/telemetry")
+                .header("Authorization", API_KEY)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(telemetryData)))
                 .andExpect(status().isCreated())
@@ -139,8 +147,9 @@ class EndToEndTelemetryAnomalyTest {
         // Step 2: Wait for async anomaly detection processing
         waitForAsyncProcessing();
 
-        // Step 3: GET alerts via HTTP to verify ANOMALY alert was created
-        mockMvc.perform(get("/api/alerts/{deviceId}", deviceId))
+        // Step 3: GET alerts via HTTP with authentication to verify ANOMALY alert was created
+        mockMvc.perform(get("/api/alerts/{deviceId}", deviceId)
+                .header("Authorization", API_KEY))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content.length()").value(1))
                 .andExpect(jsonPath("$.content[0].deviceId").value(deviceId))
@@ -155,7 +164,7 @@ class EndToEndTelemetryAnomalyTest {
      * Test Case 3: Extreme Latitude (> 80) - End-to-End HTTP Flow
      * 
      * Tests the extreme latitude anomaly detection:
-     * 1. POST telemetry with extreme latitude (85.0)
+     * 1. POST telemetry with extreme latitude (85.0) with authentication
      * 2. Verify ANOMALY alert creation for extreme coordinates
      */
     @Test
@@ -164,10 +173,11 @@ class EndToEndTelemetryAnomalyTest {
         double extremeLatitude = 85.0; // Extreme but valid latitude
         double validLongitude = -74.0060;
 
-        // Step 1: POST extreme telemetry data via HTTP
+        // Step 1: POST extreme telemetry data via HTTP with authentication
         Map<String, Object> telemetryData = createTelemetryPayload(deviceId, extremeLatitude, validLongitude);
 
         mockMvc.perform(post("/telemetry")
+                .header("Authorization", API_KEY)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(telemetryData)))
                 .andExpect(status().isCreated())
@@ -176,8 +186,9 @@ class EndToEndTelemetryAnomalyTest {
         // Step 2: Wait for async anomaly detection processing
         waitForAsyncProcessing();
 
-        // Step 3: GET alerts via HTTP to verify ANOMALY alert was created
-        mockMvc.perform(get("/api/alerts/{deviceId}", deviceId))
+        // Step 3: GET alerts via HTTP with authentication to verify ANOMALY alert was created
+        mockMvc.perform(get("/api/alerts/{deviceId}", deviceId)
+                .header("Authorization", API_KEY))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content.length()").value(1))
                 .andExpect(jsonPath("$.content[0].deviceId").value(deviceId))
@@ -192,23 +203,25 @@ class EndToEndTelemetryAnomalyTest {
      * Test Case 4: Multiple Invalid Coordinates - End-to-End HTTP Flow
      * 
      * Tests that multiple invalid telemetry entries create multiple alerts:
-     * 1. POST multiple invalid telemetry entries
+     * 1. POST multiple invalid telemetry entries with authentication
      * 2. Verify multiple ANOMALY alerts are created
      */
     @Test
     void testMultipleInvalidCoordinatesCreateMultipleAlerts_EndToEnd() throws Exception {
         String deviceId = "multi-invalid-device";
 
-        // Step 1: POST first invalid telemetry (invalid latitude)
+        // Step 1: POST first invalid telemetry (invalid latitude) with authentication
         Map<String, Object> telemetryData1 = createTelemetryPayload(deviceId, 95.0, -74.0);
         mockMvc.perform(post("/telemetry")
+                .header("Authorization", API_KEY)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(telemetryData1)))
                 .andExpect(status().isCreated());
 
-        // Step 2: POST second invalid telemetry (invalid longitude)
+        // Step 2: POST second invalid telemetry (invalid longitude) with authentication
         Map<String, Object> telemetryData2 = createTelemetryPayload(deviceId, 40.0, 200.0);
         mockMvc.perform(post("/telemetry")
+                .header("Authorization", API_KEY)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(telemetryData2)))
                 .andExpect(status().isCreated());
@@ -216,8 +229,9 @@ class EndToEndTelemetryAnomalyTest {
         // Step 3: Wait for async processing
         waitForAsyncProcessing();
 
-        // Step 4: GET alerts via HTTP to verify multiple ANOMALY alerts were created
-        mockMvc.perform(get("/api/alerts/{deviceId}", deviceId))
+        // Step 4: GET alerts via HTTP with authentication to verify multiple ANOMALY alerts were created
+        mockMvc.perform(get("/api/alerts/{deviceId}", deviceId)
+                .header("Authorization", API_KEY))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content.length()").value(2))
                 .andExpect(jsonPath("$.content[*].deviceId", everyItem(equalTo(deviceId))))
@@ -229,7 +243,7 @@ class EndToEndTelemetryAnomalyTest {
      * Test Case 5: Valid Coordinates Do Not Create Anomaly Alerts - End-to-End HTTP Flow
      * 
      * Verifies that valid coordinates do not trigger anomaly detection:
-     * 1. POST valid telemetry data
+     * 1. POST valid telemetry data with authentication
      * 2. Verify no ANOMALY alerts are created (but other alerts like GEOFENCE might exist)
      */
     @Test
@@ -238,10 +252,11 @@ class EndToEndTelemetryAnomalyTest {
         double validLatitude = 40.7128;
         double validLongitude = -74.0060;
 
-        // Step 1: POST valid telemetry data via HTTP
+        // Step 1: POST valid telemetry data via HTTP with authentication
         Map<String, Object> telemetryData = createTelemetryPayload(deviceId, validLatitude, validLongitude);
 
         mockMvc.perform(post("/telemetry")
+                .header("Authorization", API_KEY)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(telemetryData)))
                 .andExpect(status().isCreated())
@@ -250,8 +265,9 @@ class EndToEndTelemetryAnomalyTest {
         // Step 2: Wait for async processing
         waitForAsyncProcessing();
 
-        // Step 3: GET alerts via HTTP to verify no ANOMALY alerts were created
+        // Step 3: GET alerts via HTTP with authentication to verify no ANOMALY alerts were created
         mockMvc.perform(get("/api/alerts/{deviceId}", deviceId)
+                .header("Authorization", API_KEY)
                 .param("alertType", "ANOMALY"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content.length()").value(0));
@@ -261,7 +277,7 @@ class EndToEndTelemetryAnomalyTest {
      * Test Case 6: Geofence Alert vs Anomaly Alert - End-to-End HTTP Flow
      * 
      * Tests that coordinates in restricted area create GEOFENCE alerts, not ANOMALY alerts:
-     * 1. POST coordinates within restricted geofence area
+     * 1. POST coordinates within restricted geofence area with authentication
      * 2. Verify GEOFENCE alert is created but no ANOMALY alert
      */
     @Test
@@ -270,10 +286,11 @@ class EndToEndTelemetryAnomalyTest {
         double restrictedLatitude = 40.7589;  // Within restricted area
         double restrictedLongitude = -73.9851; // Within restricted area
 
-        // Step 1: POST telemetry data in restricted area via HTTP
+        // Step 1: POST telemetry data in restricted area via HTTP with authentication
         Map<String, Object> telemetryData = createTelemetryPayload(deviceId, restrictedLatitude, restrictedLongitude);
 
         mockMvc.perform(post("/telemetry")
+                .header("Authorization", API_KEY)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(telemetryData)))
                 .andExpect(status().isCreated());
@@ -281,8 +298,9 @@ class EndToEndTelemetryAnomalyTest {
         // Step 2: Wait for async processing
         waitForAsyncProcessing();
 
-        // Step 3: Verify GEOFENCE alert was created via HTTP GET
+        // Step 3: Verify GEOFENCE alert was created via HTTP GET with authentication
         mockMvc.perform(get("/api/alerts/{deviceId}", deviceId)
+                .header("Authorization", API_KEY)
                 .param("alertType", "GEOFENCE"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content.length()").value(1))
@@ -291,6 +309,7 @@ class EndToEndTelemetryAnomalyTest {
 
         // Step 4: Verify no ANOMALY alert was created
         mockMvc.perform(get("/api/alerts/{deviceId}", deviceId)
+                .header("Authorization", API_KEY)
                 .param("alertType", "ANOMALY"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content.length()").value(0));
