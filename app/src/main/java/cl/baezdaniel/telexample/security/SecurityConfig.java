@@ -9,12 +9,8 @@ import org.springframework.context.annotation.Configuration;
 public class SecurityConfig {
 
     @Bean
-    public AuthenticationService authenticationService(ApiKeyValidator apiKeyValidator,
-                                                      @Value("${endpoint.auth.enabled:#{null}}") Boolean endpointAuthEnabled,
-                                                      @Value("${endpoint.auth.enabled:false}") boolean telemetrySecurityEnabled) {
-        // endpoint.auth.enabled takes precedence if explicitly set, otherwise use endpoint.auth.enabled
-        boolean authenticationEnabled = (endpointAuthEnabled != null) ? endpointAuthEnabled : telemetrySecurityEnabled;
-        return new AuthenticationService(apiKeyValidator, authenticationEnabled);
+    public AuthenticationService authenticationService(ApiKeyValidator apiKeyValidator, @Value("${endpoint.auth.enabled:false}") Boolean endpointAuthEnabled) {
+        return new AuthenticationService(apiKeyValidator, endpointAuthEnabled);
     }
 
     @Bean
