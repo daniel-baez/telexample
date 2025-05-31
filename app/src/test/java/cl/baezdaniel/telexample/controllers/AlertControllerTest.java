@@ -39,7 +39,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 @Transactional
-@TestPropertySource(properties = "telemetry.security.enabled=false")
+@TestPropertySource(properties = "endpoint.auth.enabled=false")
 class AlertControllerTest {
 
     @Autowired

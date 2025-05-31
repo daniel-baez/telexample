@@ -9,7 +9,7 @@ public class AuthenticationService {
     private final boolean authenticationEnabled;
 
     public AuthenticationService(ApiKeyValidator apiKeyValidator,
-                                @Value("${telemetry.security.enabled:false}") boolean authenticationEnabled) {
+                                @Value("${endpoint.auth.enabled:false}") boolean authenticationEnabled) {
         this.apiKeyValidator = apiKeyValidator;
         this.authenticationEnabled = authenticationEnabled;
     }
