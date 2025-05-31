@@ -133,7 +133,6 @@ public class TelemetryProcessors {
         Timer.Sample sample = Timer.start();
         
         try {
-            System.out.println("processAlerts");
             logger.info("processAlerts");
             if (event == null || event.getTelemetry() == null) {
                 logger.error("Error in alert processing: Received null telemetry event");
@@ -160,7 +159,6 @@ public class TelemetryProcessors {
                 // Increment geofence violation counter
                 geofenceViolationsCounter.increment();
                 
-                System.out.println("distance <= radius");
                 String message = String.format("Device entered restricted area: distance=%.4f from restricted zone",
                         distanceKm);
                 logger.warn("🚨 GEOFENCE ALERT: {}", message);
