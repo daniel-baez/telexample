@@ -15,7 +15,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
-import java.util.Set;
+import java.util.Map;
 
 @Component
 @Order(1) // High priority filter
@@ -24,9 +24,9 @@ public class RateLimitFilter extends OncePerRequestFilter {
     private static final Logger logger = LoggerFactory.getLogger(RateLimitFilter.class);
     
     // Endpoints to apply rate limiting
-    private static final Set<String> RATE_LIMITED_ENDPOINTS = Set.of(
-        "/api/v1/telemetry",
-        "/api/v1/alerts"
+    private static final Map<String, String> RATE_LIMITED_ENDPOINTS = Map.of(
+        "/api/v1/telemetry", "POST",
+        "/api/v1/alerts", "GET"
     );
     
     private final RateLimitService rateLimitService;
@@ -80,15 +80,8 @@ public class RateLimitFilter extends OncePerRequestFilter {
      * Determines if rate limiting should be applied to this request
      */
     private boolean shouldApplyRateLimit(String requestURI, String method) {
-        // Apply to telemetry POST endpoints
-        if ("/api/v1/telemetry".equals(requestURI) && "POST".equals(method)) {
-            return true;
-        }
-        // Apply to alert GET endpoints - versioned only
-        if (requestURI.startsWith("/api/v1/alerts") && "GET".equals(method)) {
-            return true;
-        }
-        return false;
+        return RATE_LIMITED_ENDPOINTS.entrySet().stream().anyMatch(entry -> 
+            requestURI.startsWith(entry.getKey()) && entry.getValue().equals(method));
     }
     
     /**

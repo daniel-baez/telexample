@@ -108,9 +108,7 @@ class TelemetryEventPublishingTest {
         assertThat(event.getTelemetry().getLongitude()).isEqualTo(-74.0060);
 
         // Event source can be either TelemetryController (sync mode)
-        assertThat(event.getSource()).satisfiesAnyOf(
-            source -> assertThat(source.getClass().getSimpleName()).isEqualTo("TelemetryController")
-        );
+        assertThat(event.getSource()).isInstanceOf(TelemetryController.class);
     }
 
     /**
