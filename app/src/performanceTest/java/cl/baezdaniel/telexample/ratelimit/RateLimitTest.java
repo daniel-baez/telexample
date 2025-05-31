@@ -1,5 +1,6 @@
 package cl.baezdaniel.telexample.ratelimit;
 
+import cl.baezdaniel.telexample.BasePerformanceTestClass;
 import cl.baezdaniel.telexample.services.RateLimitService;
 import cl.baezdaniel.telexample.filters.RateLimitFilter;
 import cl.baezdaniel.telexample.config.RateLimitConfig;
@@ -40,7 +41,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
     "rate-limit.global.requests-per-second=1000"
 })
 @DisplayName("Rate Limiting Tests")
-public class RateLimitTest {
+public class RateLimitTest extends BasePerformanceTestClass {
 
     @Autowired
     private MockMvc mockMvc;
@@ -160,7 +161,7 @@ public class RateLimitTest {
             mockMvc.perform(post("/telemetry")
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(telemetryJson))
-                    .andExpect(status().isCreated())
+                    .andExpect(status().isAccepted())
                     .andExpect(header().exists("X-RateLimit-Remaining"))
                     .andExpect(header().exists("X-RateLimit-Reset"));
         }
@@ -244,7 +245,8 @@ public class RateLimitTest {
             AtomicInteger successCount = new AtomicInteger(0);
             AtomicInteger rateLimitedCount = new AtomicInteger(0);
             
-            ExecutorService executor = Executors.newFixedThreadPool(numberOfThreads);
+            // Use managed executor for automatic cleanup
+            ExecutorService executor = createManagedExecutor(numberOfThreads, "RateLimitConcurrencyTest");
 
             // Create concurrent tasks
             for (int i = 0; i < numberOfThreads; i++) {
@@ -276,7 +278,7 @@ public class RateLimitTest {
             completeLatch.await(); // Wait for completion
             long endTime = System.currentTimeMillis();
             
-            executor.shutdown();
+            // Note: executor shutdown is now handled automatically by BasePerformanceTestClass
 
             // Verify performance
             long duration = endTime - startTime;

@@ -1,10 +1,12 @@
 package cl.baezdaniel.telexample.controllers;
 
+import cl.baezdaniel.telexample.dto.TelemetryQueueItem;
 import cl.baezdaniel.telexample.entities.Telemetry;
 import cl.baezdaniel.telexample.events.TelemetryEvent;
 import cl.baezdaniel.telexample.repositories.TelemetryRepository;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Timer;
+import cl.baezdaniel.telexample.services.TelemetryQueueService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,9 +17,11 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import jakarta.validation.Valid;
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 
 @RestController
 @Validated
@@ -45,6 +49,9 @@ public class TelemetryController {
         this.telemetryEventsPublishedCounter = telemetryEventsPublishedCounter;
         this.telemetryProcessingTimer = telemetryProcessingTimer;
     }
+    
+    @Autowired
+    private TelemetryQueueService queueService;
 
     @PostMapping("/telemetry")
     public ResponseEntity<Map<String, Object>> createTelemetry(@Valid @RequestBody Telemetry telemetry) {
@@ -54,27 +61,12 @@ public class TelemetryController {
             // Increment counter for received events
             telemetryEventsCounter.increment();
             
-            logger.info("Creating telemetry for device: {}", telemetry.getDeviceId());
-            
-            Telemetry savedTelemetry = telemetryRepository.save(telemetry);
-            System.out.println("savedTelemetry: " + savedTelemetry);
-            
-            // 🚀 Publish event for async processing
-            TelemetryEvent event = new TelemetryEvent(this, savedTelemetry);
-            eventPublisher.publishEvent(event);
-            
-            // Increment counter for published events
-            telemetryEventsPublishedCounter.increment();
-            
-            logger.info("📡 Published telemetry event for device: {}", savedTelemetry.getDeviceId());
-            
-            Map<String, Object> response = new HashMap<>();
-            response.put("id", savedTelemetry.getId());
-            response.put("deviceId", savedTelemetry.getDeviceId());
-            response.put("message", "Telemetry data saved successfully");
-            
-            return ResponseEntity.status(HttpStatus.CREATED).body(response);
-            
+            // Check if queue-based processing is enabled
+            if (queueService.isEnabled()) {
+                return createTelemetryQueued(telemetry);
+            } else {
+                return createTelemetrySync(telemetry);
+            }
         } catch (Exception e) {
             logger.error("Error processing telemetry for device {}: {}", telemetry.getDeviceId(), e.getMessage(), e);
             throw e; // Re-throw to let Spring handle the error response
@@ -82,6 +74,81 @@ public class TelemetryController {
             // Record processing time
             sample.stop(telemetryProcessingTimer);
         }
+    }
+    
+    /**
+     * High-performance queue-based telemetry processing
+     * Returns immediately after enqueueing (< 5ms response time)
+     */
+    private ResponseEntity<Map<String, Object>> createTelemetryQueued(@Valid Telemetry telemetry) {
+        long startTime = System.currentTimeMillis();
+        String requestId = UUID.randomUUID().toString();
+        
+        logger.debug("🚀 [QUEUE] Processing telemetry for device: {} (requestId: {})", 
+                    telemetry.getDeviceId(), requestId);
+        
+        // Create queue item using record factory method
+        TelemetryQueueItem queueItem = TelemetryQueueItem.from(telemetry, requestId);
+        
+        // Attempt to enqueue
+        boolean enqueued = queueService.offer(queueItem);
+        
+        if (!enqueued) {
+            // Queue is full - fallback to synchronous processing
+            logger.warn("⚠️ Queue overflow for device {} - falling back to sync processing", 
+                       telemetry.getDeviceId());
+            return createTelemetrySync(telemetry);
+        }
+        
+        long responseTime = System.currentTimeMillis() - startTime;
+        
+        // Return immediately with 202 Accepted
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", "queued");
+        response.put("requestId", requestId);
+        response.put("deviceId", telemetry.getDeviceId());
+        response.put("queueSize", queueService.size());
+        response.put("message", "Telemetry data queued for processing");
+        
+        logger.info("✅ [QUEUE] Telemetry queued for device {} in {}ms (requestId: {}, queueSize: {})",
+                   telemetry.getDeviceId(), responseTime, requestId, queueService.size());
+        
+        return ResponseEntity.status(HttpStatus.ACCEPTED)
+                .header("X-Request-ID", requestId)
+                .body(response);
+    }
+    
+    /**
+     * Traditional synchronous telemetry processing (backward compatibility)
+     */
+    private ResponseEntity<Map<String, Object>> createTelemetrySync(@Valid Telemetry telemetry) {
+        long startTime = System.currentTimeMillis();
+        
+        logger.debug("📝 [SYNC] Processing telemetry for device: {}", telemetry.getDeviceId());
+            
+            Telemetry savedTelemetry = telemetryRepository.save(telemetry);
+                
+            // 🚀 Publish event for async processing
+            TelemetryEvent event = new TelemetryEvent(this, savedTelemetry);
+            eventPublisher.publishEvent(event);
+            
+            // Increment counter for published events
+            telemetryEventsPublishedCounter.increment();
+            
+            
+        long responseTime = System.currentTimeMillis() - startTime;
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("id", savedTelemetry.getId());
+            response.put("deviceId", savedTelemetry.getDeviceId());
+            response.put("message", "Telemetry data saved successfully");
+            
+            logger.info("✅ [SYNC] Telemetry saved for device {} in {}ms (id: {})",
+                   telemetry.getDeviceId(), responseTime, savedTelemetry.getId());
+        
+        return ResponseEntity.status(HttpStatus.ACCEPTED).body(response);
+            
+        
     }
 
     @GetMapping("/devices/{deviceId}/telemetry/latest")
@@ -95,5 +162,31 @@ public class TelemetryController {
         } else {
             return ResponseEntity.notFound().build();
         }
+    }
+    
+    /**
+     * Queue status endpoint for monitoring
+     */
+    @GetMapping("/queue/status")
+    public ResponseEntity<Map<String, Object>> getQueueStatus() {
+        Map<String, Object> status = new HashMap<>();
+        
+        if (queueService.isEnabled()) {
+            TelemetryQueueService.QueueStats stats = queueService.getStats();
+            status.put("enabled", true);
+            status.put("currentSize", stats.getCurrentSize());
+            status.put("capacity", stats.getCapacity());
+            status.put("utilization", stats.getUtilizationPercent());
+            status.put("totalEnqueued", stats.getTotalEnqueued());
+            status.put("totalProcessed", stats.getTotalProcessed());
+            status.put("totalOverflow", stats.getTotalOverflow());
+            status.put("workerCount", stats.getWorkerCount());
+            status.put("running", stats.isRunning());
+        } else {
+            status.put("enabled", false);
+            status.put("mode", "synchronous");
+        }
+        
+        return ResponseEntity.ok(status);
     }
 } 

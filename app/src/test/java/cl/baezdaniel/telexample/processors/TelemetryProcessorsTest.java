@@ -1,5 +1,6 @@
 package cl.baezdaniel.telexample.processors;
 
+import cl.baezdaniel.telexample.BaseTestClass;
 import cl.baezdaniel.telexample.entities.Alert;
 import cl.baezdaniel.telexample.entities.Telemetry;
 import cl.baezdaniel.telexample.events.TelemetryEvent;
@@ -15,6 +16,8 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -27,7 +30,9 @@ import static org.assertj.core.api.Assertions.assertThat;
  * Tests isolated processor behavior, logging, and timing requirements.
  */
 @SpringBootTest
-class TelemetryProcessorsTest {
+@AutoConfigureMockMvc
+@Transactional
+class TelemetryProcessorsTest extends BaseTestClass {
 
     @Autowired
     private TelemetryProcessors telemetryProcessors;
