@@ -137,7 +137,6 @@ cd dbaez-telemetry-example
 ```properties
 # Authentication (disabled for demo, enabled for production)
 endpoint.auth.enabled=false
-telemetry.security.enabled=false
 
 # Rate Limiting  
 telemetry.rate-limit.device.requests-per-minute=20
