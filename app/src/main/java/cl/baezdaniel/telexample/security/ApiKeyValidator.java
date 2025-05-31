@@ -13,7 +13,7 @@ public class ApiKeyValidator {
     
     private final Set<String> validApiKeys;
 
-    public ApiKeyValidator(@Value("${telemetry.security.api-keys:valid-test-key,another-test-key,prod-key-12345}") String apiKeysConfig) {
+    public ApiKeyValidator(@Value("${endpoint.security.api-keys:valid-test-key,another-test-key,prod-key-12345}") String apiKeysConfig) {
         this.validApiKeys = Arrays.stream(apiKeysConfig.split(","))
                 .map(String::trim)
                 .filter(key -> !key.isEmpty())
