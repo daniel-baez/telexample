@@ -4,6 +4,8 @@ import cl.baezdaniel.telexample.dto.TelemetryQueueItem;
 import cl.baezdaniel.telexample.entities.Telemetry;
 import cl.baezdaniel.telexample.events.TelemetryEvent;
 import cl.baezdaniel.telexample.repositories.TelemetryRepository;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.Timer;
 import cl.baezdaniel.telexample.services.TelemetryQueueService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,22 +29,50 @@ public class TelemetryController {
 
     private static final Logger logger = LoggerFactory.getLogger(TelemetryController.class);
 
-    @Autowired
-    private TelemetryRepository telemetryRepository;
+    private final TelemetryRepository telemetryRepository;
+    private final ApplicationEventPublisher eventPublisher;
+    
+    // Metrics
+    private final Counter telemetryEventsCounter;
+    private final Counter telemetryEventsPublishedCounter;
+    private final Timer telemetryProcessingTimer;
 
     @Autowired
-    private ApplicationEventPublisher eventPublisher;
+    public TelemetryController(TelemetryRepository telemetryRepository, 
+                              ApplicationEventPublisher eventPublisher,
+                              Counter telemetryEventsCounter,
+                              Counter telemetryEventsPublishedCounter,
+                              Timer telemetryProcessingTimer) {
+        this.telemetryRepository = telemetryRepository;
+        this.eventPublisher = eventPublisher;
+        this.telemetryEventsCounter = telemetryEventsCounter;
+        this.telemetryEventsPublishedCounter = telemetryEventsPublishedCounter;
+        this.telemetryProcessingTimer = telemetryProcessingTimer;
+    }
     
     @Autowired
     private TelemetryQueueService queueService;
 
     @PostMapping("/telemetry")
     public ResponseEntity<Map<String, Object>> createTelemetry(@Valid @RequestBody Telemetry telemetry) {
-        // Check if queue-based processing is enabled
-        if (queueService.isEnabled()) {
-            return createTelemetryQueued(telemetry);
-        } else {
-            return createTelemetrySync(telemetry);
+        Timer.Sample sample = Timer.start();
+        
+        try {
+            // Increment counter for received events
+            telemetryEventsCounter.increment();
+            
+            // Check if queue-based processing is enabled
+            if (queueService.isEnabled()) {
+                return createTelemetryQueued(telemetry);
+            } else {
+                return createTelemetrySync(telemetry);
+            }
+        } catch (Exception e) {
+            logger.error("Error processing telemetry for device {}: {}", telemetry.getDeviceId(), e.getMessage(), e);
+            throw e; // Re-throw to let Spring handle the error response
+        } finally {
+            // Record processing time
+            sample.stop(telemetryProcessingTimer);
         }
     }
     
@@ -95,24 +125,30 @@ public class TelemetryController {
         long startTime = System.currentTimeMillis();
         
         logger.debug("📝 [SYNC] Processing telemetry for device: {}", telemetry.getDeviceId());
-        
-        Telemetry savedTelemetry = telemetryRepository.save(telemetry);
-        
-        // 🚀 Publish event for async processing
-        TelemetryEvent event = new TelemetryEvent(this, savedTelemetry);
-        eventPublisher.publishEvent(event);
-        
+            
+            Telemetry savedTelemetry = telemetryRepository.save(telemetry);
+                
+            // 🚀 Publish event for async processing
+            TelemetryEvent event = new TelemetryEvent(this, savedTelemetry);
+            eventPublisher.publishEvent(event);
+            
+            // Increment counter for published events
+            telemetryEventsPublishedCounter.increment();
+            
+            
         long responseTime = System.currentTimeMillis() - startTime;
-        
-        Map<String, Object> response = new HashMap<>();
-        response.put("id", savedTelemetry.getId());
-        response.put("deviceId", savedTelemetry.getDeviceId());
-        response.put("message", "Telemetry data saved successfully");
-        
-        logger.info("✅ [SYNC] Telemetry saved for device {} in {}ms (id: {})",
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("id", savedTelemetry.getId());
+            response.put("deviceId", savedTelemetry.getDeviceId());
+            response.put("message", "Telemetry data saved successfully");
+            
+            logger.info("✅ [SYNC] Telemetry saved for device {} in {}ms (id: {})",
                    telemetry.getDeviceId(), responseTime, savedTelemetry.getId());
         
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(response);
+            
+        
     }
 
     @GetMapping("/devices/{deviceId}/telemetry/latest")

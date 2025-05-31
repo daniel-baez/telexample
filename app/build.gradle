@@ -60,6 +60,11 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
     implementation 'org.springframework.boot:spring-boot-starter-validation'
+    
+    // Metrics and monitoring - Spring's pluggable metrics system
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    implementation 'io.micrometer:micrometer-registry-prometheus'  // Prometheus backend (can be disabled)
+    implementation 'io.micrometer:micrometer-core'                // Core metrics API
 
     implementation 'org.springframework:spring-aspects'
     
