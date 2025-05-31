@@ -23,7 +23,7 @@ import java.util.Map;
  * Provides paginated access to alerts with advanced filtering and sorting
  */
 @RestController
-@RequestMapping("/api/alerts")
+@RequestMapping("/api/v1/alerts")
 public class AlertController {
 
     private static final Logger logger = LoggerFactory.getLogger(AlertController.class);
@@ -55,7 +55,7 @@ public class AlertController {
     /**
      * Get paginated alerts for a specific device with filtering capabilities
      * 
-     * GET /api/alerts/{deviceId}?page=0&size=20&sort=createdAt,desc&alertType=ANOMALY&severity=HIGH&startDate=2024-01-01T00:00:00&endDate=2024-12-31T23:59:59
+     * GET /api/v1/alerts/{deviceId}?page=0&size=20&sort=createdAt,desc&alertType=ANOMALY&severity=HIGH&startDate=2024-01-01T00:00:00&endDate=2024-12-31T23:59:59
      */
     @GetMapping("/{deviceId}")
     public ResponseEntity<Page<Alert>> getAlertsForDevice(
@@ -105,7 +105,7 @@ public class AlertController {
     /**
      * Get alerts across all devices (admin view) with advanced filtering and pagination
      * 
-     * GET /api/alerts?page=0&size=20&sort=createdAt,desc&deviceId=device-123&alertType=ANOMALY&severity=HIGH
+     * GET /api/v1/alerts?page=0&size=20&sort=createdAt,desc&deviceId=device-123&alertType=ANOMALY&severity=HIGH
      */
     @GetMapping
     public ResponseEntity<Page<Alert>> getAllAlerts(
@@ -148,7 +148,7 @@ public class AlertController {
     /**
      * Get recent alerts for a specific device (last 24 hours)
      * 
-     * GET /api/alerts/{deviceId}/recent
+     * GET /api/v1/alerts/{deviceId}/recent
      */
     @GetMapping("/{deviceId}/recent")
     public ResponseEntity<Page<Alert>> getRecentAlertsForDevice(
@@ -176,7 +176,7 @@ public class AlertController {
     /**
      * Get alert statistics (counts by severity)
      * 
-     * GET /api/alerts/statistics
+     * GET /api/v1/alerts/statistics
      */
     @GetMapping("/statistics")
     public ResponseEntity<Map<String, Object>> getAlertStatistics() {
@@ -201,7 +201,7 @@ public class AlertController {
     /**
      * Health check endpoint for the Alert system
      * 
-     * GET /api/alerts/health
+     * GET /api/v1/alerts/health
      */
     @GetMapping("/health")
     public ResponseEntity<Map<String, String>> healthCheck() {

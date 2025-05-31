@@ -170,7 +170,7 @@ public class RateLimitTest {
         @DisplayName("Should apply rate limiting to alerts endpoint")
         void shouldApplyRateLimitingToAlertsEndpoint() throws Exception {
             // First request should succeed with rate limit headers
-            mockMvc.perform(get("/api/alerts/integration-test-device"))
+            mockMvc.perform(get("/api/v1/alerts/integration-test-device"))
                     .andExpect(status().isOk())
                     .andExpect(header().exists("X-RateLimit-Remaining"))
                     .andExpect(header().exists("X-RateLimit-Reset"));
@@ -224,7 +224,7 @@ public class RateLimitTest {
         @DisplayName("Should use IP-based rate limiting when device ID not available")
         void shouldUseIpBasedRateLimitingWhenDeviceIdNotAvailable() throws Exception {
             // Make request without device ID in path or parameters
-            mockMvc.perform(get("/api/alerts")
+            mockMvc.perform(get("/api/v1/alerts")
                     .header("X-Forwarded-For", "192.168.1.100"))
                     .andExpect(status().isOk())
                     .andExpect(header().exists("X-RateLimit-Remaining"));

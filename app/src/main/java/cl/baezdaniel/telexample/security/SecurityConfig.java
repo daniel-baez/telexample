@@ -10,7 +10,10 @@ public class SecurityConfig {
 
     @Bean
     public AuthenticationService authenticationService(ApiKeyValidator apiKeyValidator,
-                                                      @Value("${telemetry.security.enabled:false}") boolean authenticationEnabled) {
+                                                      @Value("${endpoint.auth.enabled:#{null}}") Boolean endpointAuthEnabled,
+                                                      @Value("${telemetry.security.enabled:false}") boolean telemetrySecurityEnabled) {
+        // endpoint.auth.enabled takes precedence if explicitly set, otherwise use telemetry.security.enabled
+        boolean authenticationEnabled = (endpointAuthEnabled != null) ? endpointAuthEnabled : telemetrySecurityEnabled;
         return new AuthenticationService(apiKeyValidator, authenticationEnabled);
     }
 

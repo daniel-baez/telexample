@@ -39,7 +39,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 @Transactional
-@TestPropertySource(properties = "endpoint.auth.enabled=false")
+@TestPropertySource(properties = "telemetry.security.enabled=false")
 class AlertControllerTest {
 
     @Autowired
@@ -105,7 +105,7 @@ class AlertControllerTest {
     }
 
     /**
-     * Test Case 1: GET /api/alerts/{deviceId} - Basic functionality
+     * Test Case 1: GET /api/v1/alerts/{deviceId} - Basic functionality
      */
     @Test
     void getAlertsForDevice_ValidDevice_ReturnsAlerts() throws Exception {
@@ -116,7 +116,7 @@ class AlertControllerTest {
         createTestAlert("other-device", "ANOMALY", "LOW", 41.0, -75.0); // Should not be included
 
         // When & Then
-        mockMvc.perform(get("/api/alerts/{deviceId}", deviceId))
+        mockMvc.perform(get("/api/v1/alerts/{deviceId}", deviceId))
                 .andExpect(status().isOk())
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON))
                 .andExpect(jsonPath("$.content", hasSize(2)))
@@ -129,7 +129,7 @@ class AlertControllerTest {
     }
 
     /**
-     * Test Case 2: GET /api/alerts/{deviceId} - Pagination
+     * Test Case 2: GET /api/v1/alerts/{deviceId} - Pagination
      */
     @Test
     void getAlertsForDevice_WithPagination_ReturnsPagedResults() throws Exception {
@@ -140,7 +140,7 @@ class AlertControllerTest {
         }
 
         // When & Then - First page
-        mockMvc.perform(get("/api/alerts/{deviceId}", deviceId)
+        mockMvc.perform(get("/api/v1/alerts/{deviceId}", deviceId)
                 .param("page", "0")
                 .param("size", "10"))
                 .andExpect(status().isOk())
@@ -153,7 +153,7 @@ class AlertControllerTest {
                 .andExpect(jsonPath("$.pageable.pageSize", equalTo(10)));
 
         // When & Then - Last page
-        mockMvc.perform(get("/api/alerts/{deviceId}", deviceId)
+        mockMvc.perform(get("/api/v1/alerts/{deviceId}", deviceId)
                 .param("page", "2")
                 .param("size", "10"))
                 .andExpect(status().isOk())
@@ -163,7 +163,7 @@ class AlertControllerTest {
     }
 
     /**
-     * Test Case 3: GET /api/alerts/{deviceId} - Filtering by alert type
+     * Test Case 3: GET /api/v1/alerts/{deviceId} - Filtering by alert type
      */
     @Test
     void getAlertsForDevice_WithAlertTypeFilter_ReturnsFilteredResults() throws Exception {
@@ -174,7 +174,7 @@ class AlertControllerTest {
         createTestAlert(deviceId, "GEOFENCE", "LOW", 40.2, -74.2);
 
         // When & Then
-        mockMvc.perform(get("/api/alerts/{deviceId}", deviceId)
+        mockMvc.perform(get("/api/v1/alerts/{deviceId}", deviceId)
                 .param("alertType", "ANOMALY"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content", hasSize(1)))
@@ -183,7 +183,7 @@ class AlertControllerTest {
     }
 
     /**
-     * Test Case 4: GET /api/alerts/{deviceId} - Filtering by severity
+     * Test Case 4: GET /api/v1/alerts/{deviceId} - Filtering by severity
      */
     @Test
     void getAlertsForDevice_WithSeverityFilter_ReturnsFilteredResults() throws Exception {
@@ -194,7 +194,7 @@ class AlertControllerTest {
         createTestAlert(deviceId, "GEOFENCE", "LOW", 40.2, -74.2);
 
         // When & Then
-        mockMvc.perform(get("/api/alerts/{deviceId}", deviceId)
+        mockMvc.perform(get("/api/v1/alerts/{deviceId}", deviceId)
                 .param("severity", "HIGH"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content", hasSize(2)))
@@ -203,7 +203,7 @@ class AlertControllerTest {
     }
 
     /**
-     * Test Case 5: GET /api/alerts/{deviceId} - Date range filtering
+     * Test Case 5: GET /api/v1/alerts/{deviceId} - Date range filtering
      */
     @Test
     void getAlertsForDevice_WithDateRange_ReturnsFilteredResults() throws Exception {
@@ -224,7 +224,7 @@ class AlertControllerTest {
         String endDate = LocalDateTime.now().toString();
 
         // When & Then
-        mockMvc.perform(get("/api/alerts/{deviceId}", deviceId)
+        mockMvc.perform(get("/api/v1/alerts/{deviceId}", deviceId)
                 .param("startDate", startDate)
                 .param("endDate", endDate))
                 .andExpect(status().isOk())
@@ -234,7 +234,7 @@ class AlertControllerTest {
     }
 
     /**
-     * Test Case 6: GET /api/alerts - All alerts (admin view)
+     * Test Case 6: GET /api/v1/alerts - All alerts (admin view)
      */
     @Test
     void getAllAlerts_ReturnsAlertsFromAllDevices() throws Exception {
@@ -244,7 +244,7 @@ class AlertControllerTest {
         createTestAlert("device-3", "GEOFENCE", "LOW", 42.0, -76.0);
 
         // When & Then
-        mockMvc.perform(get("/api/alerts"))
+        mockMvc.perform(get("/api/v1/alerts"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content", hasSize(3)))
                 .andExpect(jsonPath("$.content[*].deviceId", containsInAnyOrder("device-1", "device-2", "device-3")))
@@ -252,7 +252,7 @@ class AlertControllerTest {
     }
 
     /**
-     * Test Case 7: GET /api/alerts - With device filter
+     * Test Case 7: GET /api/v1/alerts - With device filter
      */
     @Test
     void getAllAlerts_WithDeviceFilter_ReturnsFilteredResults() throws Exception {
@@ -262,7 +262,7 @@ class AlertControllerTest {
         createTestAlert("other-device", "GEOFENCE", "LOW", 41.0, -75.0);
 
         // When & Then
-        mockMvc.perform(get("/api/alerts")
+        mockMvc.perform(get("/api/v1/alerts")
                 .param("deviceId", "target-device"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content", hasSize(2)))
@@ -287,13 +287,13 @@ class AlertControllerTest {
         alertRepository.save(alert2);
 
         // When & Then - Default sorting (createdAt desc)
-        mockMvc.perform(get("/api/alerts/{deviceId}", deviceId))
+        mockMvc.perform(get("/api/v1/alerts/{deviceId}", deviceId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content[0].alertType", equalTo("SPEED"))) // More recent first
                 .andExpect(jsonPath("$.content[1].alertType", equalTo("ANOMALY")));
 
         // When & Then - Custom sorting (severity asc)
-        mockMvc.perform(get("/api/alerts/{deviceId}", deviceId)
+        mockMvc.perform(get("/api/v1/alerts/{deviceId}", deviceId)
                 .param("sort", "severity,asc"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content[0].severity", equalTo("HIGH")))
@@ -306,7 +306,7 @@ class AlertControllerTest {
     @Test
     void getAlertsForDevice_NonExistentDevice_ReturnsEmptyResult() throws Exception {
         // When & Then
-        mockMvc.perform(get("/api/alerts/{deviceId}", "non-existent-device"))
+        mockMvc.perform(get("/api/v1/alerts/{deviceId}", "non-existent-device"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content", hasSize(0)))
                 .andExpect(jsonPath("$.totalElements", equalTo(0)));
@@ -318,12 +318,12 @@ class AlertControllerTest {
     @Test
     void getAlertsForDevice_InvalidPagination_ReturnsBadRequest() throws Exception {
         // When & Then - Negative page
-        mockMvc.perform(get("/api/alerts/{deviceId}", "test-device")
+        mockMvc.perform(get("/api/v1/alerts/{deviceId}", "test-device")
                 .param("page", "-1"))
                 .andExpect(status().isBadRequest());
 
         // When & Then - Size too large
-        mockMvc.perform(get("/api/alerts/{deviceId}", "test-device")
+        mockMvc.perform(get("/api/v1/alerts/{deviceId}", "test-device")
                 .param("size", "1000"))
                 .andExpect(status().isBadRequest());
     }
@@ -340,7 +340,7 @@ class AlertControllerTest {
         createTestAlert(deviceId, "SPEED", "HIGH", 40.2, -74.2);
 
         // When & Then
-        mockMvc.perform(get("/api/alerts/{deviceId}", deviceId)
+        mockMvc.perform(get("/api/v1/alerts/{deviceId}", deviceId)
                 .param("alertType", "ANOMALY")
                 .param("severity", "HIGH"))
                 .andExpect(status().isOk())
@@ -360,7 +360,7 @@ class AlertControllerTest {
         createTestAlert(deviceId, "ANOMALY", "HIGH", 40.7128, -74.0060);
 
         // When & Then
-        mockMvc.perform(get("/api/alerts/{deviceId}", deviceId))
+        mockMvc.perform(get("/api/v1/alerts/{deviceId}", deviceId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content[0].id", notNullValue()))
                 .andExpect(jsonPath("$.content[0].deviceId", equalTo(deviceId)))

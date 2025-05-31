@@ -101,7 +101,7 @@ class EndToEndTelemetryAnomalyTest {
         waitForAsyncProcessing();
 
         // Step 3: GET alerts via HTTP to verify ANOMALY alert was created
-        mockMvc.perform(get("/api/alerts/{deviceId}", deviceId))
+        mockMvc.perform(get("/api/v1/alerts/{deviceId}", deviceId))
                 .andExpect(status().isOk())
                 .andExpect(content().contentType(MediaType.APPLICATION_JSON))
                 .andExpect(jsonPath("$.content").isArray())
@@ -140,7 +140,7 @@ class EndToEndTelemetryAnomalyTest {
         waitForAsyncProcessing();
 
         // Step 3: GET alerts via HTTP to verify ANOMALY alert was created
-        mockMvc.perform(get("/api/alerts/{deviceId}", deviceId))
+        mockMvc.perform(get("/api/v1/alerts/{deviceId}", deviceId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content.length()").value(1))
                 .andExpect(jsonPath("$.content[0].deviceId").value(deviceId))
@@ -176,7 +176,7 @@ class EndToEndTelemetryAnomalyTest {
         waitForAsyncProcessing();
 
         // Step 3: GET alerts via HTTP to verify ANOMALY alert was created
-        mockMvc.perform(get("/api/alerts/{deviceId}", deviceId))
+        mockMvc.perform(get("/api/v1/alerts/{deviceId}", deviceId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content.length()").value(1))
                 .andExpect(jsonPath("$.content[0].deviceId").value(deviceId))
@@ -218,7 +218,7 @@ class EndToEndTelemetryAnomalyTest {
         waitForAsyncProcessing();
 
         // Verify both alerts were created
-        mockMvc.perform(get("/api/alerts/{deviceId}", deviceId))
+        mockMvc.perform(get("/api/v1/alerts/{deviceId}", deviceId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content.length()").value(2))
                 .andExpect(jsonPath("$.content[0].alertType").value("ANOMALY"))
@@ -251,7 +251,7 @@ class EndToEndTelemetryAnomalyTest {
 
         // Step 3: GET alerts and verify no ANOMALY alerts exist
         // (Note: GEOFENCE alerts may exist for this location)
-        mockMvc.perform(get("/api/alerts/{deviceId}", deviceId))
+        mockMvc.perform(get("/api/v1/alerts/{deviceId}", deviceId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content[?(@.alertType == 'ANOMALY')]").isEmpty());
     }
@@ -281,7 +281,7 @@ class EndToEndTelemetryAnomalyTest {
         waitForAsyncProcessing();
 
         // Step 3: Verify GEOFENCE alert exists but no ANOMALY alert
-        mockMvc.perform(get("/api/alerts/{deviceId}", deviceId))
+        mockMvc.perform(get("/api/v1/alerts/{deviceId}", deviceId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content[?(@.alertType == 'GEOFENCE')]").isNotEmpty())
                 .andExpect(jsonPath("$.content[?(@.alertType == 'ANOMALY')]").isEmpty());
