@@ -1,24 +1,27 @@
 package cl.baezdaniel.telexample.events;
 
+import cl.baezdaniel.telexample.BaseTestClass;
 import cl.baezdaniel.telexample.entities.Alert;
 import cl.baezdaniel.telexample.repositories.AlertRepository;
 import cl.baezdaniel.telexample.processors.TelemetryProcessors;
+import cl.baezdaniel.telexample.services.TelemetryQueueService;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.ApplicationContext;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.context.ApplicationContext;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.awaitility.Awaitility;
 
@@ -48,7 +51,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 @Transactional
-class TelemetryEventProcessingTest {
+class TelemetryEventProcessingTest extends BaseTestClass {
 
     @Autowired
     private MockMvc mockMvc;
@@ -65,6 +68,9 @@ class TelemetryEventProcessingTest {
     @Autowired
     private ApplicationContext applicationContext;
 
+    @Autowired
+    private TelemetryQueueService queueService;
+
     private ListAppender<ILoggingEvent> listAppender;
     private Logger processorLogger;
 
@@ -77,6 +83,13 @@ class TelemetryEventProcessingTest {
         
         // Setup log capture for processors
         setupLogCapture();
+    }
+
+    @AfterEach
+    void tearDown() throws Exception {
+        // Skip immediate shutdown to preserve queue service state for other tests
+        // The Spring context will handle cleanup at the end of the test class
+        // This prevents queue service from being shut down between individual tests
     }
 
     private void setupLogCapture() {
@@ -123,13 +136,11 @@ class TelemetryEventProcessingTest {
     @Test
     void testCompleteAsyncProcessingFlow() throws Exception {
         // POST valid telemetry data (entering restricted area)
-        // Verify immediate API response (201 Created)
+        // Verify immediate API response (202 Accepted)
         mockMvc.perform(post("/telemetry")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(createTestTelemetryData("test-device-001", 40.7589, -73.9851))))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.id").isNumber())
-                .andExpect(jsonPath("$.deviceId").value("test-device-001"));
+                .andExpect(status().isAccepted());
 
         waitForAsyncProcessingUsingAwaitility();
 
@@ -170,11 +181,12 @@ class TelemetryEventProcessingTest {
 
                         long startTime = System.currentTimeMillis();
                         
-                        // Verify all API calls return 201 Created quickly (< 100ms each)
+                        // Verify all API calls return 202 Accepted quickly (< 100ms each)
                         mockMvc.perform(post("/telemetry")
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(objectMapper.writeValueAsString(telemetryData)))
-                                .andExpect(status().isCreated());
+                                .andExpect(status().isAccepted())
+                                .andExpect(jsonPath("$.requestId").isString());
                         
                         long responseTime = System.currentTimeMillis() - startTime;
                         assertThat(responseTime).isLessThan(100L);
@@ -267,7 +279,7 @@ class TelemetryEventProcessingTest {
                     "longitude", testLon,
                     "timestamp", LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
                 ))))
-                .andExpect(status().isCreated());
+                .andExpect(status().isAccepted());
 
         // Wait for async processing
         waitForAsyncProcessing();

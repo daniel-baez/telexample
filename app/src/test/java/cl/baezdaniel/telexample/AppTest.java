@@ -6,10 +6,14 @@ package cl.baezdaniel.telexample;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
+import static org.junit.jupiter.api.Assertions.*;
+
 @SpringBootTest
-class AppTest {
-    @Test 
+class AppTest extends BaseTestClass {
+
+    @Test
     void contextLoads() {
-        // Test that the Spring context loads successfully
+        // Test that the application context loads successfully
+        assertNotNull(this.getClass());
     }
 }

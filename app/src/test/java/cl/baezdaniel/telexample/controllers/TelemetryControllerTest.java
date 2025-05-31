@@ -1,12 +1,19 @@
 package cl.baezdaniel.telexample.controllers;
 
+import cl.baezdaniel.telexample.BaseTestClass;
+import cl.baezdaniel.telexample.entities.Telemetry;
+import cl.baezdaniel.telexample.repositories.TelemetryRepository;
+import cl.baezdaniel.telexample.services.TelemetryQueueService;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.ApplicationContext;
 import org.springframework.http.MediaType;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,10 +28,14 @@ import java.util.Map;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
+/**
+ * Integration tests for TelemetryController
+ * Tests the REST API endpoints for telemetry data submission and retrieval
+ */
 @SpringBootTest
 @AutoConfigureMockMvc
 @Transactional
-class TelemetryControllerTest {
+class TelemetryControllerTest extends BaseTestClass {
 
     @Autowired
     private MockMvc mockMvc;
@@ -35,12 +46,25 @@ class TelemetryControllerTest {
     @Autowired
     private DataSource dataSource;
 
+    @Autowired
+    private TelemetryQueueService queueService;
+
+    @Autowired
+    private ApplicationContext applicationContext;
+
     @BeforeEach
     void setUp() throws Exception {
         // Reset database state between tests
         try (Connection conn = dataSource.getConnection(); Statement stmt = conn.createStatement()) {
             stmt.execute("DELETE FROM telemetry");
         }
+    }
+
+    @AfterEach
+    void tearDown() throws Exception {
+        // Skip immediate shutdown to preserve queue service state for other tests
+        // The Spring context will handle cleanup at the end of the test class
+        // This prevents queue service from being shut down between individual tests
     }
 
     /**
@@ -75,9 +99,7 @@ class TelemetryControllerTest {
         mockMvc.perform(post("/telemetry")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(telemetryData)))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.id").isNumber());
-        
+                .andExpect(status().isAccepted());
     }
 
     /**
@@ -112,7 +134,7 @@ class TelemetryControllerTest {
         mockMvc.perform(post("/telemetry")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(telemetryData1)))
-                .andExpect(status().isCreated());
+                .andExpect(status().isAccepted());
 
         // Second post with later timestamp
         Map<String, Object> telemetryData2 = new HashMap<>();
@@ -124,7 +146,7 @@ class TelemetryControllerTest {
         mockMvc.perform(post("/telemetry")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(telemetryData2)))
-                .andExpect(status().isCreated());
+                .andExpect(status().isAccepted());
 
         // Get latest should return the second record (with T2)
         mockMvc.perform(get("/devices/device456/telemetry/latest"))

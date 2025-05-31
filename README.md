@@ -18,7 +18,7 @@ Submit telemetry data from a device.
 ```
 
 **Responses:**
-- `201 Created` - Returns `{"id": <numeric_id>}` for successful creation
+- `202 Accepted` - Returns `{}` for successful creation
 - `400 Bad Request` - When required fields are missing or invalid
 
 **Example:**

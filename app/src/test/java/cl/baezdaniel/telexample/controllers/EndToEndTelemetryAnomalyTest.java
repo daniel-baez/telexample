@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,6 +23,8 @@ import static org.hamcrest.Matchers.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
+import cl.baezdaniel.telexample.BaseTestClass;
+
 /**
  * End-to-end integration tests that verify the complete telemetry processing pipeline
  * by sending invalid telemetry data via HTTP POST and verifying alert creation via HTTP GET.
@@ -33,7 +36,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 @Transactional
-class EndToEndTelemetryAnomalyTest {
+class EndToEndTelemetryAnomalyTest extends BaseTestClass {
 
     @Autowired
     private MockMvc mockMvc;
@@ -77,7 +80,7 @@ class EndToEndTelemetryAnomalyTest {
      * 
      * This test verifies the complete pipeline:
      * 1. POST invalid telemetry data (lat = 95.0) via HTTP endpoint
-     * 2. Verify telemetry is stored (returns 201 Created)
+     * 2. Verify telemetry is queued (returns 202 Accepted)
      * 3. Wait for async anomaly detection processing
      * 4. GET alerts via HTTP endpoint to verify ANOMALY alert was created
      */
@@ -93,8 +96,7 @@ class EndToEndTelemetryAnomalyTest {
         mockMvc.perform(post("/telemetry")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(telemetryData)))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.id").isNumber());
+                .andExpect(status().isAccepted());
 
         // Step 2: Wait for async anomaly detection processing
         waitForAsyncProcessing();
@@ -133,8 +135,7 @@ class EndToEndTelemetryAnomalyTest {
         mockMvc.perform(post("/telemetry")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(telemetryData)))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.id").isNumber());
+                .andExpect(status().isAccepted());
 
         // Step 2: Wait for async anomaly detection processing
         waitForAsyncProcessing();
@@ -170,8 +171,7 @@ class EndToEndTelemetryAnomalyTest {
         mockMvc.perform(post("/telemetry")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(telemetryData)))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.id").isNumber());
+                .andExpect(status().isAccepted());
 
         // Step 2: Wait for async anomaly detection processing
         waitForAsyncProcessing();
@@ -204,14 +204,14 @@ class EndToEndTelemetryAnomalyTest {
         mockMvc.perform(post("/telemetry")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(telemetryData1)))
-                .andExpect(status().isCreated());
+                .andExpect(status().isAccepted());
 
         // Step 2: POST second invalid telemetry (invalid longitude)
         Map<String, Object> telemetryData2 = createTelemetryPayload(deviceId, 40.0, 200.0);
         mockMvc.perform(post("/telemetry")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(telemetryData2)))
-                .andExpect(status().isCreated());
+                .andExpect(status().isAccepted());
 
         // Step 3: Wait for async processing
         waitForAsyncProcessing();
@@ -244,8 +244,7 @@ class EndToEndTelemetryAnomalyTest {
         mockMvc.perform(post("/telemetry")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(telemetryData)))
-                .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.id").isNumber());
+                .andExpect(status().isAccepted());
 
         // Step 2: Wait for async processing
         waitForAsyncProcessing();
@@ -276,7 +275,7 @@ class EndToEndTelemetryAnomalyTest {
         mockMvc.perform(post("/telemetry")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(telemetryData)))
-                .andExpect(status().isCreated());
+                .andExpect(status().isAccepted());
 
         // Step 2: Wait for async processing
         waitForAsyncProcessing();

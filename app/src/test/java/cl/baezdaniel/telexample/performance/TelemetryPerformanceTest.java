@@ -86,7 +86,7 @@ class TelemetryPerformanceTest {
                         mockMvc.perform(post("/telemetry")
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(objectMapper.writeValueAsString(telemetryData)))
-                                .andExpect(status().isCreated());
+                                .andExpect(status().isAccepted());
 
                         long responseTime = System.currentTimeMillis() - startTime;
                         return responseTime;
@@ -154,7 +154,7 @@ class TelemetryPerformanceTest {
                         mockMvc.perform(post("/telemetry")
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(objectMapper.writeValueAsString(telemetryData)))
-                                .andExpect(status().isCreated());
+                                .andExpect(status().isAccepted());
 
                     } catch (Exception e) {
                         throw new RuntimeException(e);
@@ -173,7 +173,7 @@ class TelemetryPerformanceTest {
         // Verify all events are processed within 30 seconds
         assertThat(totalDuration).isLessThan(30000L);
 
-        // Assert no events are dropped or lost (all returned 201 Created)
+        // Assert no events are dropped or lost (all returned 202 Accepted)
         // This is implicitly tested by the fact that all futures completed successfully
 
         // Calculate throughput metrics
@@ -205,7 +205,7 @@ class TelemetryPerformanceTest {
             mockMvc.perform(post("/telemetry")
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(objectMapper.writeValueAsString(telemetryData)))
-                    .andExpect(status().isCreated());
+                    .andExpect(status().isAccepted());
         }
 
         // Measure consistent response times
@@ -223,7 +223,7 @@ class TelemetryPerformanceTest {
             mockMvc.perform(post("/telemetry")
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(objectMapper.writeValueAsString(telemetryData)))
-                    .andExpect(status().isCreated());
+                    .andExpect(status().isAccepted());
                     
             long responseTime = System.currentTimeMillis() - startTime;
             responseTimes.add(responseTime);

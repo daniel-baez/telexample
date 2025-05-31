@@ -1,5 +1,6 @@
 package cl.baezdaniel.telexample.controllers;
 
+import cl.baezdaniel.telexample.BaseTestClass;
 import cl.baezdaniel.telexample.entities.Alert;
 import cl.baezdaniel.telexample.repositories.AlertRepository;
 import cl.baezdaniel.telexample.services.AlertService;
@@ -23,6 +24,8 @@ import java.sql.Statement;
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
+import java.security.MessageDigest;
+import java.nio.charset.StandardCharsets;
 
 import static org.hamcrest.Matchers.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -35,7 +38,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 @Transactional
-class AlertControllerTest {
+class AlertControllerTest extends BaseTestClass {
 
     @Autowired
     private MockMvc mockMvc;
@@ -70,9 +73,33 @@ class AlertControllerTest {
         alert.setLongitude(lon);
         alert.setProcessorName("TestProcessor");
         alert.setCreatedAt(LocalDateTime.now());
-        alert.setFingerprint(deviceId + alertType + System.nanoTime()); // Ensure uniqueness
+        
+        // Create a shorter fingerprint using hash (max 32 chars)
+        String fingerprintData = deviceId + alertType + System.nanoTime();
+        alert.setFingerprint(createShortFingerprint(fingerprintData));
+        
         alert.setMetadata("{\"test\": true}");
         return alertRepository.save(alert);
+    }
+    
+    private String createShortFingerprint(String data) {
+        try {
+            MessageDigest md = MessageDigest.getInstance("MD5");
+            byte[] hash = md.digest(data.getBytes(StandardCharsets.UTF_8));
+            StringBuilder hexString = new StringBuilder();
+            for (byte b : hash) {
+                String hex = Integer.toHexString(0xff & b);
+                if (hex.length() == 1) {
+                    hexString.append('0');
+                }
+                hexString.append(hex);
+            }
+            // Return first 30 characters of MD5 hash (well under 32 char limit)
+            return hexString.toString().substring(0, 30);
+        } catch (Exception e) {
+            // Fallback to simple counter-based approach
+            return "test_" + System.currentTimeMillis() % 100000000L;
+        }
     }
 
     /**

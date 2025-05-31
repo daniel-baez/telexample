@@ -1,5 +1,6 @@
 package cl.baezdaniel.telexample.config;
 
+import cl.baezdaniel.telexample.BaseTestClass;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -18,7 +19,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * Validates default settings, custom overrides, and thread pool behavior.
  */
 @SpringBootTest
-class AsyncConfigTest {
+class AsyncConfigTest extends BaseTestClass {
 
     @Autowired
     private Executor telemetryTaskExecutor;
@@ -35,14 +36,14 @@ class AsyncConfigTest {
 
         ThreadPoolTaskExecutor executor = (ThreadPoolTaskExecutor) telemetryTaskExecutor;
 
-        // Assert core pool size = 4 (default)
-        assertThat(executor.getCorePoolSize()).isEqualTo(4);
+        // Assert core pool size = 16 (test environment setting)
+        assertThat(executor.getCorePoolSize()).isEqualTo(16);
         
-        // Assert max pool size = 8 (default) 
-        assertThat(executor.getMaxPoolSize()).isEqualTo(8);
+        // Assert max pool size = 32 (test environment setting) 
+        assertThat(executor.getMaxPoolSize()).isEqualTo(32);
         
-        // Assert queue capacity = 100 (default)
-        assertThat(executor.getQueueCapacity()).isEqualTo(100);
+        // Assert queue capacity = 500 (test environment setting)
+        assertThat(executor.getQueueCapacity()).isEqualTo(500);
         
         // Verify thread name prefix = "TelemetryProcessor-"
         assertThat(executor.getThreadNamePrefix()).isEqualTo("TelemetryProcessor-");
@@ -131,7 +132,8 @@ class AsyncConfigTest {
         "telemetry.processing.max-pool-size=4", 
         "telemetry.processing.queue-capacity=50"
     })
-    static class CustomConfigurationTest {
+
+    static class CustomConfigurationTest extends BaseTestClass {
 
         @Autowired
         private Executor telemetryTaskExecutor;
