@@ -18,19 +18,11 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
-import org.springframework.transaction.annotation.Transactional;
 
-import javax.sql.DataSource;
-import java.sql.Connection;
-import java.sql.Statement;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.IntStream;
 
@@ -38,11 +30,6 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-/**
- * Comprehensive tests for Rate Limiting functionality
- * This test class verifies that rate limiting works correctly across different endpoints
- * and scenarios including edge cases and performance requirements.
- */
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
@@ -50,8 +37,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
     "rate-limit.enabled=true",
     "rate-limit.telemetry.device.requests-per-minute=20",
     "rate-limit.ip.requests-per-minute=50", 
-    "rate-limit.global.requests-per-second=1000",
-    "endpoint.auth.enabled=false"
+    "rate-limit.global.requests-per-second=1000"
 })
 @DisplayName("Rate Limiting Tests")
 public class RateLimitTest {
