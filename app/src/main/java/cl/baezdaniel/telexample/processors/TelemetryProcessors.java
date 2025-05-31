@@ -3,6 +3,8 @@ package cl.baezdaniel.telexample.processors;
 import cl.baezdaniel.telexample.entities.Telemetry;
 import cl.baezdaniel.telexample.events.TelemetryEvent;
 import cl.baezdaniel.telexample.services.AlertService;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.Timer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,14 +15,42 @@ import org.springframework.stereotype.Component;
 /**
  * Async processors for telemetry events.
  * Each method runs in parallel on the configured thread pool.
+ * Instrumented with comprehensive metrics for performance monitoring.
  */
 @Component
 public class TelemetryProcessors {
 
     private static final Logger logger = LoggerFactory.getLogger(TelemetryProcessors.class);
 
+    private final AlertService alertService;
+    
+    // Metrics
+    private final Timer anomalyDetectionTimer;
+    private final Timer alertProcessingTimer;
+    private final Timer aggregationTimer;
+    private final Counter anomaliesDetectedCounter;
+    private final Counter alertsCreatedCounter;
+    private final Counter geofenceViolationsCounter;
+    private final Counter aggregationOperationsCounter;
+
     @Autowired
-    private AlertService alertService;
+    public TelemetryProcessors(AlertService alertService,
+                              Timer anomalyDetectionTimer,
+                              Timer alertProcessingTimer,
+                              Timer aggregationTimer,
+                              Counter anomaliesDetectedCounter,
+                              Counter alertsCreatedCounter,
+                              Counter geofenceViolationsCounter,
+                              Counter aggregationOperationsCounter) {
+        this.alertService = alertService;
+        this.anomalyDetectionTimer = anomalyDetectionTimer;
+        this.alertProcessingTimer = alertProcessingTimer;
+        this.aggregationTimer = aggregationTimer;
+        this.anomaliesDetectedCounter = anomaliesDetectedCounter;
+        this.alertsCreatedCounter = alertsCreatedCounter;
+        this.geofenceViolationsCounter = geofenceViolationsCounter;
+        this.aggregationOperationsCounter = aggregationOperationsCounter;
+    }
 
     /**
      * Processor 1: Anomaly Detection
@@ -29,6 +59,8 @@ public class TelemetryProcessors {
     @EventListener
     @Async("telemetryTaskExecutor")
     public void detectAnomaly(TelemetryEvent event) {
+        Timer.Sample sample = Timer.start();
+        
         try {
             if (event == null || event.getTelemetry() == null) {
                 logger.error("Error in anomaly detection: Received null telemetry event");
@@ -41,6 +73,9 @@ public class TelemetryProcessors {
             
             // Anomaly detection logic
             if (isInvalidCoordinates(telemetry.getLatitude(), telemetry.getLongitude())) {
+                // Increment anomaly counter
+                anomaliesDetectedCounter.increment();
+                
                 logger.warn("🚨 ANOMALY DETECTED: Invalid coordinates detected: lat={}, lon={}", 
                            telemetry.getLatitude(), telemetry.getLongitude());
                 
@@ -54,10 +89,16 @@ public class TelemetryProcessors {
                     null
                 );
                 
+                // Increment alert counter
+                alertsCreatedCounter.increment();
+                
                 logger.info("🚨 Alert created for device {}: Invalid coordinates", telemetry.getDeviceId());
             }
             
             if (isExtremeLocation(telemetry.getLatitude())) {
+                // Increment anomaly counter
+                anomaliesDetectedCounter.increment();
+                
                 logger.warn("🚨 ANOMALY DETECTED: Extreme latitude detected: {}", telemetry.getLatitude());
                 
                 alertService.createAlert(
@@ -70,11 +111,16 @@ public class TelemetryProcessors {
                     null
                 );
                 
+                // Increment alert counter
+                alertsCreatedCounter.increment();
+                
                 logger.info("🚨 Alert created for device {}: Extreme location", telemetry.getDeviceId());
             }
             
         } catch (Exception e) {
-            logger.error("Error in anomaly detection: {}", e.getMessage());
+            logger.error("Error in anomaly detection: {}", e.getMessage(), e);
+        } finally {
+            sample.stop(anomalyDetectionTimer);
         }
     }
 
@@ -84,17 +130,18 @@ public class TelemetryProcessors {
     @EventListener
     @Async("telemetryTaskExecutor")
     public void processAlerts(TelemetryEvent event) {
-        System.out.println("processAlerts");
-        logger.info("processAlerts");
-        if (event == null || event.getTelemetry() == null) {
-            logger.error("Error in alert processing: Received null telemetry event");
-            return;
-        }
-
-        Telemetry telemetry = event.getTelemetry();
-        String deviceId = telemetry.getDeviceId();
-
+        Timer.Sample sample = Timer.start();
+        
         try {
+            logger.info("processAlerts");
+            if (event == null || event.getTelemetry() == null) {
+                logger.error("Error in alert processing: Received null telemetry event");
+                return;
+            }
+
+            Telemetry telemetry = event.getTelemetry();
+            String deviceId = telemetry.getDeviceId();
+
             logger.info("🔔 [Thread: {}] Processing alerts for device: {}",
                     Thread.currentThread().getName(), deviceId);
 
@@ -109,7 +156,9 @@ public class TelemetryProcessors {
             double radiusKm = 1.0; // 1 km radius
 
             if (distanceKm <= radiusKm) {
-                System.out.println("distance <= radius");
+                // Increment geofence violation counter
+                geofenceViolationsCounter.increment();
+                
                 String message = String.format("Device entered restricted area: distance=%.4f from restricted zone",
                         distanceKm);
                 logger.warn("🚨 GEOFENCE ALERT: {}", message);
@@ -128,16 +177,22 @@ public class TelemetryProcessors {
                             restrictedLat, restrictedLon, distanceKm
                         )
                     );
+                    
+                    // Increment alert counter
+                    alertsCreatedCounter.increment();
+                    
                     logger.info("🚨 Alert created for device {}: Geofence violation", deviceId);
                 } catch (Exception e) {
                     logger.error("Failed to create geofence alert for device {}: {}", deviceId, e.getMessage());
                 }
             }
 
-            // Simulate processing time
-
         } catch (Exception e) {
-            logger.error("Error in alert processing for device {}: {}", deviceId, e.getMessage());
+            logger.error("Error in alert processing for device {}: {}", 
+                event != null && event.getTelemetry() != null ? event.getTelemetry().getDeviceId() : "unknown", 
+                e.getMessage(), e);
+        } finally {
+            sample.stop(alertProcessingTimer);
         }
     }
 
@@ -147,15 +202,17 @@ public class TelemetryProcessors {
     @EventListener
     @Async("telemetryTaskExecutor")
     public void aggregateData(TelemetryEvent event) {
-        if (event == null || event.getTelemetry() == null) {
-            logger.error("Error in data aggregation: Received null telemetry event");
-            return;
-        }
-
-        Telemetry telemetry = event.getTelemetry();
-        String deviceId = telemetry.getDeviceId();
-
+        Timer.Sample sample = Timer.start();
+        
         try {
+            if (event == null || event.getTelemetry() == null) {
+                logger.error("Error in data aggregation: Received null telemetry event");
+                return;
+            }
+
+            Telemetry telemetry = event.getTelemetry();
+            String deviceId = telemetry.getDeviceId();
+
             logger.info("🗺️ [Thread: {}] Processing aggregation for device: {}",
                     Thread.currentThread().getName(), deviceId);
 
@@ -164,8 +221,16 @@ public class TelemetryProcessors {
             double lon = telemetry.getLongitude();
 
             logger.info("🗺️ Aggregated coordinates for device {}: lat={}, lon={}", deviceId, lat, lon);
+            
+            // Increment aggregation operations counter
+            aggregationOperationsCounter.increment();
+            
         } catch (Exception e) {
-            logger.error("Error in data aggregation for device {}: {}", deviceId, e.getMessage());
+            logger.error("Error in data aggregation for device {}: {}", 
+                event != null && event.getTelemetry() != null ? event.getTelemetry().getDeviceId() : "unknown", 
+                e.getMessage(), e);
+        } finally {
+            sample.stop(aggregationTimer);
         }
     }
 
