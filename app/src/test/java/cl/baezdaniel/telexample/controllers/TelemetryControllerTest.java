@@ -1,19 +1,13 @@
 package cl.baezdaniel.telexample.controllers;
 
-import cl.baezdaniel.telexample.BaseTestClass;
-import cl.baezdaniel.telexample.entities.Telemetry;
-import cl.baezdaniel.telexample.repositories.TelemetryRepository;
-import cl.baezdaniel.telexample.services.TelemetryQueueService;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.ApplicationContext;
 import org.springframework.http.MediaType;
-import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -35,7 +29,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 @Transactional
-class TelemetryControllerTest extends BaseTestClass {
+@TestPropertySource(properties = "endpoint.auth.enabled=false")
+class TelemetryControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
@@ -46,25 +41,12 @@ class TelemetryControllerTest extends BaseTestClass {
     @Autowired
     private DataSource dataSource;
 
-    @Autowired
-    private TelemetryQueueService queueService;
-
-    @Autowired
-    private ApplicationContext applicationContext;
-
     @BeforeEach
     void setUp() throws Exception {
         // Reset database state between tests
         try (Connection conn = dataSource.getConnection(); Statement stmt = conn.createStatement()) {
             stmt.execute("DELETE FROM telemetry");
         }
-    }
-
-    @AfterEach
-    void tearDown() throws Exception {
-        // Skip immediate shutdown to preserve queue service state for other tests
-        // The Spring context will handle cleanup at the end of the test class
-        // This prevents queue service from being shut down between individual tests
     }
 
     /**
@@ -78,14 +60,14 @@ class TelemetryControllerTest extends BaseTestClass {
         telemetryData.put("longitude", -74.0060);
         telemetryData.put("timestamp", LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
 
-        mockMvc.perform(post("/telemetry")
+        mockMvc.perform(post("/api/v1/telemetry")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(telemetryData)))
                 .andExpect(status().isBadRequest());
     }
 
     /**
-     * Tests that posting valid telemetry data with all required fields returns a 201 Created
+     * Tests that posting valid telemetry data with all required fields returns a 202 Accepted
      * and includes an ID in the response. This verifies the successful creation of telemetry records.
      */
     @Test
@@ -96,10 +78,11 @@ class TelemetryControllerTest extends BaseTestClass {
         telemetryData.put("longitude", -74.0060);
         telemetryData.put("timestamp", LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
 
-        mockMvc.perform(post("/telemetry")
+        mockMvc.perform(post("/api/v1/telemetry")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(telemetryData)))
-                .andExpect(status().isAccepted());
+                .andExpect(status().isAccepted())
+                .andExpect(jsonPath("$.id").isNumber());
     }
 
     /**
@@ -108,7 +91,7 @@ class TelemetryControllerTest extends BaseTestClass {
      */
     @Test
     void testGetLatestTelemetryWhenNoData() throws Exception {
-        mockMvc.perform(get("/devices/nonexistent/telemetry/latest"))
+        mockMvc.perform(get("/api/v1/telemetry/devices/nonexistent/latest"))
                 .andExpect(status().isNotFound());
     }
 
@@ -131,7 +114,7 @@ class TelemetryControllerTest extends BaseTestClass {
         telemetryData1.put("longitude", -74.0060);
         telemetryData1.put("timestamp", t1.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
 
-        mockMvc.perform(post("/telemetry")
+        mockMvc.perform(post("/api/v1/telemetry")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(telemetryData1)))
                 .andExpect(status().isAccepted());
@@ -143,13 +126,13 @@ class TelemetryControllerTest extends BaseTestClass {
         telemetryData2.put("longitude", -87.6298);
         telemetryData2.put("timestamp", t2.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
 
-        mockMvc.perform(post("/telemetry")
+        mockMvc.perform(post("/api/v1/telemetry")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(telemetryData2)))
                 .andExpect(status().isAccepted());
 
         // Get latest should return the second record (with T2)
-        mockMvc.perform(get("/devices/device456/telemetry/latest"))
+        mockMvc.perform(get("/api/v1/telemetry/devices/device456/latest"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.deviceId").value("device456"))
                 .andExpect(jsonPath("$.latitude").value(41.8781))

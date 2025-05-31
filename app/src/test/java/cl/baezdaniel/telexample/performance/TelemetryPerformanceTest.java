@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,6 +35,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 @Transactional
+@TestPropertySource(properties = "endpoint.auth.enabled=false")
 class TelemetryPerformanceTest {
 
     @Autowired
@@ -83,7 +85,7 @@ class TelemetryPerformanceTest {
 
                         long startTime = System.currentTimeMillis();
 
-                        mockMvc.perform(post("/telemetry")
+                        mockMvc.perform(post("/api/v1/telemetry")
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(objectMapper.writeValueAsString(telemetryData)))
                                 .andExpect(status().isAccepted());
@@ -151,7 +153,7 @@ class TelemetryPerformanceTest {
                                 -74.0 + (i % 100) * 0.001
                         );
 
-                        mockMvc.perform(post("/telemetry")
+                        mockMvc.perform(post("/api/v1/telemetry")
                                 .contentType(MediaType.APPLICATION_JSON)
                                 .content(objectMapper.writeValueAsString(telemetryData)))
                                 .andExpect(status().isAccepted());
@@ -198,52 +200,48 @@ class TelemetryPerformanceTest {
         
         // Warmup phase - let JVM optimize
         for (int i = 0; i < warmupRequests; i++) {
-            Map<String, Object> telemetryData = createTestTelemetryData(
-                    "warmup-device-" + i, 40.0, -74.0
-            );
-
-            mockMvc.perform(post("/telemetry")
+            Map<String, Object> warmupData = createTestTelemetryData("warmup-device-" + i, 40.0, -74.0);
+            mockMvc.perform(post("/api/v1/telemetry")
                     .contentType(MediaType.APPLICATION_JSON)
-                    .content(objectMapper.writeValueAsString(telemetryData)))
+                    .content(objectMapper.writeValueAsString(warmupData)))
                     .andExpect(status().isAccepted());
         }
 
-        // Measure consistent response times
+        // Test phase - measure response time consistency
         List<Long> responseTimes = new ArrayList<>();
         
         for (int i = 0; i < testRequests; i++) {
-            Map<String, Object> telemetryData = createTestTelemetryData(
-                    "consistency-device-" + i, 
-                    40.0 + i * 0.001, 
-                    -74.0 + i * 0.001
-            );
-
-            long startTime = System.currentTimeMillis();
+            Map<String, Object> testData = createTestTelemetryData("consistency-device-" + i, 40.0 + i * 0.001, -74.0 + i * 0.001);
             
-            mockMvc.perform(post("/telemetry")
+            long startTime = System.currentTimeMillis();
+            mockMvc.perform(post("/api/v1/telemetry")
                     .contentType(MediaType.APPLICATION_JSON)
-                    .content(objectMapper.writeValueAsString(telemetryData)))
+                    .content(objectMapper.writeValueAsString(testData)))
                     .andExpect(status().isAccepted());
-                    
             long responseTime = System.currentTimeMillis() - startTime;
+            
             responseTimes.add(responseTime);
+            
+            // Small delay to simulate realistic request pattern
+            Thread.sleep(10);
         }
 
-        // Calculate coefficient of variation (std dev / mean)
-        double mean = responseTimes.stream().mapToLong(Long::longValue).average().orElse(0.0);
+        // Calculate variance and standard deviation
+        double average = responseTimes.stream().mapToLong(Long::longValue).average().orElse(0.0);
         double variance = responseTimes.stream()
-                .mapToDouble(time -> Math.pow(time - mean, 2))
-                .average().orElse(0.0);
-        double stdDev = Math.sqrt(variance);
-        double coefficientOfVariation = stdDev / mean;
+                .mapToDouble(time -> Math.pow(time - average, 2))
+                .average()
+                .orElse(0.0);
+        double standardDeviation = Math.sqrt(variance);
 
-        System.out.println("Response Time Consistency:");
-        System.out.println("Mean response time: " + String.format("%.2f", mean) + "ms");
-        System.out.println("Standard deviation: " + String.format("%.2f", stdDev) + "ms");
-        System.out.println("Coefficient of variation: " + String.format("%.2f", coefficientOfVariation));
+        System.out.println("Response Time Consistency Results:");
+        System.out.println("Average response time: " + String.format("%.2f", average) + "ms");
+        System.out.println("Standard deviation: " + String.format("%.2f", standardDeviation) + "ms");
+        System.out.println("Min response time: " + responseTimes.stream().mapToLong(Long::longValue).min().orElse(0) + "ms");
+        System.out.println("Max response time: " + responseTimes.stream().mapToLong(Long::longValue).max().orElse(0) + "ms");
 
-        // Response time should be consistent (low coefficient of variation)
-        assertThat(coefficientOfVariation).isLessThan(1.0); // Less than 100% variation
-        assertThat(mean).isLessThan(100.0); // Average response time should be reasonable
+        // Assert consistent response times (standard deviation should be reasonable)
+        assertThat(standardDeviation).isLessThan(average * 0.5); // SD should be less than 50% of average
+        assertThat(average).isLessThan(50.0); // Average response time should be reasonable
     }
 } 

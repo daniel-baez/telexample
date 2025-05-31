@@ -1,6 +1,5 @@
 package cl.baezdaniel.telexample.controllers;
 
-import cl.baezdaniel.telexample.BaseTestClass;
 import cl.baezdaniel.telexample.entities.Alert;
 import cl.baezdaniel.telexample.repositories.AlertRepository;
 import cl.baezdaniel.telexample.services.AlertService;
@@ -15,6 +14,7 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,8 +22,9 @@ import javax.sql.DataSource;
 import java.sql.Connection;
 import java.sql.Statement;
 import java.time.LocalDateTime;
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import java.security.MessageDigest;
 import java.nio.charset.StandardCharsets;
 
@@ -32,13 +33,14 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 /**
- * Integration tests for AlertController REST API endpoints.
- * Tests comprehensive API functionality including pagination, filtering, and error handling.
+ * Integration tests for AlertController
+ * Tests the REST API endpoints for alert retrieval and management
  */
 @SpringBootTest
 @AutoConfigureMockMvc
 @Transactional
-class AlertControllerTest extends BaseTestClass {
+@TestPropertySource(properties = "endpoint.auth.enabled=false")
+class AlertControllerTest {
 
     @Autowired
     private MockMvc mockMvc;

@@ -1,12 +1,7 @@
 package cl.baezdaniel.telexample.controllers;
 
-import cl.baezdaniel.telexample.BaseTestClass;
-import cl.baezdaniel.telexample.entities.Telemetry;
 import cl.baezdaniel.telexample.events.TelemetryEvent;
-import cl.baezdaniel.telexample.services.QueueWorker;
-import cl.baezdaniel.telexample.services.TelemetryQueueService;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,14 +9,12 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.ApplicationContext;
-import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.event.EventListener;
 import org.springframework.http.MediaType;
-import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
-import org.springframework.stereotype.Component;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.context.annotation.Bean;
 
 import javax.sql.DataSource;
 import java.sql.Connection;
@@ -37,18 +30,17 @@ import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * Tests for telemetry event publishing functionality.
- * Validates event creation, publishing, and failure handling scenarios.
- * 
- * Extends BaseTestClass for automatic TelemetryQueueService cleanup.
+ * Integration tests for TelemetryController event publishing functionality
+ * Verifies that telemetry events are properly published and processed
  */
 @SpringBootTest
 @AutoConfigureMockMvc
 @Transactional
-class TelemetryEventPublishingTest extends BaseTestClass {
+@TestPropertySource(properties = "endpoint.auth.enabled=false")
+class TelemetryEventPublishingTest {
 
     @Autowired
     private MockMvc mockMvc;
@@ -63,9 +55,6 @@ class TelemetryEventPublishingTest extends BaseTestClass {
     private TestEventListener testEventListener;
 
     @Autowired
-    private TelemetryQueueService queueService;
-
-    @Autowired
     private ApplicationContext applicationContext;
 
     @BeforeEach
@@ -75,7 +64,7 @@ class TelemetryEventPublishingTest extends BaseTestClass {
             stmt.execute("DELETE FROM telemetry");
         }
         
-        // Clear captured events
+        // Clear any captured events from previous tests
         testEventListener.clearCapturedEvents();
     }
 
@@ -97,7 +86,7 @@ class TelemetryEventPublishingTest extends BaseTestClass {
         // POST telemetry data
         Map<String, Object> telemetryData = createTestTelemetryData("event-test-device", 40.7128, -74.0060);
 
-        mockMvc.perform(post("/telemetry")
+        mockMvc.perform(post("/api/v1/telemetry")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(telemetryData)))
                 .andExpect(status().isAccepted());
@@ -118,9 +107,8 @@ class TelemetryEventPublishingTest extends BaseTestClass {
         assertThat(event.getTelemetry().getLatitude()).isEqualTo(40.7128);
         assertThat(event.getTelemetry().getLongitude()).isEqualTo(-74.0060);
 
-        // Event source can be either QueueWorker (queue mode) or TelemetryController (sync mode)
+        // Event source can be either TelemetryController (sync mode)
         assertThat(event.getSource()).satisfiesAnyOf(
-            source -> assertThat(source).isInstanceOf(QueueWorker.class),
             source -> assertThat(source.getClass().getSimpleName()).isEqualTo("TelemetryController")
         );
     }
@@ -135,7 +123,7 @@ class TelemetryEventPublishingTest extends BaseTestClass {
         Map<String, Object> telemetryData = createTestTelemetryData("failure-test-device", 41.8781, -87.6298);
 
         // The test should focus on API resilience
-        mockMvc.perform(post("/telemetry")
+        mockMvc.perform(post("/api/v1/telemetry")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(telemetryData)))
                 .andExpect(status().isAccepted());
@@ -162,7 +150,7 @@ class TelemetryEventPublishingTest extends BaseTestClass {
                     -74.0 + i * 0.1
             );
 
-            mockMvc.perform(post("/telemetry")
+            mockMvc.perform(post("/api/v1/telemetry")
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(objectMapper.writeValueAsString(telemetryData)))
                     .andExpect(status().isAccepted());
@@ -197,12 +185,12 @@ class TelemetryEventPublishingTest extends BaseTestClass {
         Map<String, Object> telemetryData1 = createTestTelemetryData("timing-device-1", 40.1, -74.1);
         Map<String, Object> telemetryData2 = createTestTelemetryData("timing-device-2", 40.2, -74.2);
 
-        mockMvc.perform(post("/telemetry")
+        mockMvc.perform(post("/api/v1/telemetry")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(telemetryData1)))
                 .andExpect(status().isAccepted());
 
-        mockMvc.perform(post("/telemetry")
+        mockMvc.perform(post("/api/v1/telemetry")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(telemetryData2)))
                 .andExpect(status().isAccepted());

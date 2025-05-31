@@ -21,6 +21,7 @@ import java.util.Map;
 import java.util.Optional;
 
 @RestController
+@RequestMapping("/api/v1")
 @Validated
 public class TelemetryController {
 
@@ -47,20 +48,8 @@ public class TelemetryController {
         this.telemetryProcessingTimer = telemetryProcessingTimer;
     }
 
-    // BACKWARD COMPATIBILITY: Original unprotected endpoint
     @PostMapping("/telemetry")
-    public ResponseEntity<Map<String, Object>> createTelemetryLegacy(@Valid @RequestBody Telemetry telemetry) {
-        return createTelemetryInternal(telemetry);
-    }
-
-    // NEW PROTECTED API: Requires authentication
-    @PostMapping("/api/telemetry")
     public ResponseEntity<Map<String, Object>> createTelemetry(@Valid @RequestBody Telemetry telemetry) {
-        return createTelemetryInternal(telemetry);
-    }
-
-    // Shared implementation for both endpoints
-    private ResponseEntity<Map<String, Object>> createTelemetryInternal(@Valid Telemetry telemetry) {
         Timer.Sample sample = Timer.start();
         
         try {
@@ -97,7 +86,7 @@ public class TelemetryController {
         }
     }
 
-    @GetMapping("/api/telemetry/query")
+    @GetMapping("/telemetry/query")
     public ResponseEntity<List<Telemetry>> queryTelemetry(@RequestParam String deviceId) {
         logger.info("Querying telemetry for device: {}", deviceId);
         
@@ -106,7 +95,7 @@ public class TelemetryController {
         return ResponseEntity.ok(telemetryData);
     }
 
-    @GetMapping("/devices/{deviceId}/telemetry/latest")
+    @GetMapping("/telemetry/devices/{deviceId}/latest")
     public ResponseEntity<Telemetry> getLatestTelemetry(@PathVariable String deviceId) {
         logger.info("Getting latest telemetry for device: {}", deviceId);
         

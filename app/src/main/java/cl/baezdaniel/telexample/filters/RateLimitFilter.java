@@ -25,8 +25,9 @@ public class RateLimitFilter extends OncePerRequestFilter {
     
     // Endpoints to apply rate limiting
     private static final Set<String> RATE_LIMITED_ENDPOINTS = Set.of(
-        "/telemetry",
-        "/api/alerts"
+        "/api/v1/telemetry",
+        "/api/v1/alerts",
+        "/api/alerts" // Keep compatibility with non-versioned alerts
     );
     
     private final RateLimitService rateLimitService;
@@ -80,11 +81,12 @@ public class RateLimitFilter extends OncePerRequestFilter {
      * Determines if rate limiting should be applied to this request
      */
     private boolean shouldApplyRateLimit(String requestURI, String method) {
-        // Apply to telemetry POST endpoints and alert GET endpoints
-        if ("/telemetry".equals(requestURI) && "POST".equals(method)) {
+        // Apply to telemetry POST endpoints
+        if ("/api/v1/telemetry".equals(requestURI) && "POST".equals(method)) {
             return true;
         }
-        if (requestURI.startsWith("/api/alerts") && "GET".equals(method)) {
+        // Apply to alert GET endpoints - both v1 and non-versioned
+        if ((requestURI.startsWith("/api/v1/alerts") || requestURI.startsWith("/api/alerts")) && "GET".equals(method)) {
             return true;
         }
         return false;
@@ -99,15 +101,20 @@ public class RateLimitFilter extends OncePerRequestFilter {
         String requestURI = request.getRequestURI();
         
         // For telemetry endpoints, try to extract device ID from parameters or path
-        if (requestURI.startsWith("/telemetry")) {
+        if (requestURI.startsWith("/api/v1/telemetry")) {
             String deviceId = request.getParameter("deviceId");
             if (deviceId != null && !deviceId.trim().isEmpty()) {
                 return "device:" + deviceId;
             }
         }
         
-        // For alert endpoints, extract device ID from path
-        if (requestURI.startsWith("/api/alerts/")) {
+        // For alert endpoints, extract device ID from path - handle both v1 and non-versioned
+        if (requestURI.startsWith("/api/v1/alerts/")) {
+            String pathInfo = requestURI.substring("/api/v1/alerts/".length());
+            if (!pathInfo.isEmpty() && !pathInfo.contains("/")) {
+                return "device:" + pathInfo;
+            }
+        } else if (requestURI.startsWith("/api/alerts/")) {
             String pathInfo = requestURI.substring("/api/alerts/".length());
             if (!pathInfo.isEmpty() && !pathInfo.contains("/")) {
                 return "device:" + pathInfo;
