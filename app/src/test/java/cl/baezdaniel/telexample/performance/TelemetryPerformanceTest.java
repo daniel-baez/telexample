@@ -133,7 +133,6 @@ class TelemetryPerformanceTest {
     @Test
     void testAsyncProcessingThroughput() throws Exception {
         final int numberOfEvents = 1000;
-        final long testDurationMs = 10000; // 10 seconds
         final long startTime = System.currentTimeMillis();
 
         // Submit 1000 telemetry records over 10 seconds
@@ -187,15 +186,6 @@ class TelemetryPerformanceTest {
 
         // Verify reasonable throughput (at least 10 events per second)
         assertThat(throughputPerSecond).isGreaterThan(10.0);
-
-        // Wait additional time for async processing to complete
-        // Thread.sleep(5000);
-        
-        // Memory usage should remain stable (no excessive memory growth)
-        // This is tested implicitly - if there were memory leaks, the test would fail
-        System.gc(); // Suggest garbage collection
-        long memoryAfter = Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory();
-        System.out.println("Memory usage after test: " + (memoryAfter / 1024 / 1024) + " MB");
     }
 
     /**

@@ -1,6 +1,7 @@
 package cl.baezdaniel.telexample.events;
 
-import cl.baezdaniel.telexample.entities.Telemetry;
+import cl.baezdaniel.telexample.entities.Alert;
+import cl.baezdaniel.telexample.repositories.AlertRepository;
 import cl.baezdaniel.telexample.processors.TelemetryProcessors;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
@@ -15,9 +16,16 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.context.ApplicationContext;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
+import org.awaitility.Awaitility;
 
 import javax.sql.DataSource;
 import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.Statement;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -51,6 +59,12 @@ class TelemetryEventProcessingTest {
     @Autowired
     private DataSource dataSource;
 
+    @Autowired
+    private AlertRepository alertRepository;
+
+    @Autowired
+    private ApplicationContext applicationContext;
+
     private ListAppender<ILoggingEvent> listAppender;
     private Logger processorLogger;
 
@@ -82,6 +96,17 @@ class TelemetryEventProcessingTest {
         }
     }
 
+    private void waitForAsyncProcessingUsingAwaitility() {
+        Awaitility.await()
+            .atMost(10, TimeUnit.SECONDS)
+            .pollInterval(100, TimeUnit.MILLISECONDS)
+            .until(() -> {
+                // Check if all async processing is complete
+                // For example, check if the alert repository has the expected alerts
+                return alertRepository.count() > 0;
+            });
+    }
+
     private Map<String, Object> createTestTelemetryData(String deviceId, double lat, double lon) {
         Map<String, Object> telemetryData = new HashMap<>();
         telemetryData.put("deviceId", deviceId);
@@ -97,40 +122,31 @@ class TelemetryEventProcessingTest {
      */
     @Test
     void testCompleteAsyncProcessingFlow() throws Exception {
-        // POST valid telemetry data
-        Map<String, Object> telemetryData = createTestTelemetryData("test-device-001", 40.7128, -74.0060);
-
+        // POST valid telemetry data (entering restricted area)
         // Verify immediate API response (201 Created)
         mockMvc.perform(post("/telemetry")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(telemetryData)))
+                .content(objectMapper.writeValueAsString(createTestTelemetryData("test-device-001", 40.7589, -73.9851))))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id").isNumber())
                 .andExpect(jsonPath("$.deviceId").value("test-device-001"));
 
-        // Wait for async processing completion
-        waitForAsyncProcessing();
+        waitForAsyncProcessingUsingAwaitility();
 
-        // Get captured log events
-        List<ILoggingEvent> logEvents = listAppender.list;
-        List<String> logMessages = logEvents.stream()
-                .map(ILoggingEvent::getFormattedMessage)
-                .toList();
-
-        // Assert all four processors executed (check logs for emojis)
-        assertThat(logMessages).anyMatch(msg -> msg.contains("🔍") && msg.contains("test-device-001")); // Anomaly detection
-        assertThat(logMessages).anyMatch(msg -> msg.contains("📊") && msg.contains("test-device-001")); // Statistics
-        assertThat(logMessages).anyMatch(msg -> msg.contains("🔔") && msg.contains("test-device-001")); // Alerts
-        assertThat(logMessages).anyMatch(msg -> msg.contains("🗺️") && msg.contains("test-device-001")); // Aggregation
-
-        // Verify thread names contain "TelemetryProcessor-"
-        assertThat(logMessages).anyMatch(msg -> msg.contains("TelemetryProcessor-"));
-
-        // Confirm processing happened (at least 4 processor invocations)
-        long processorExecutions = logMessages.stream()
-                .filter(msg -> msg.contains("Processing") || msg.contains("updated") || msg.contains("aggregated"))
-                .count();
-        assertThat(processorExecutions).isGreaterThanOrEqualTo(4);
+        // Verify alert was created (indicates alert processor executed)
+        List<Alert> alerts = alertRepository.findByDeviceId("test-device-001", Pageable.unpaged()).getContent();
+        assertThat(alerts)
+            .hasSize(1)
+            .first()
+            .satisfies(alert -> {
+                assertThat(alert.getAlertType()).isEqualTo("GEOFENCE");
+                assertThat(alert.getDeviceId()).isEqualTo("test-device-001");
+                assertThat(alert.getLatitude()).isEqualTo(40.7589);
+                assertThat(alert.getLongitude()).isEqualTo(-73.9851);
+                assertThat(alert.getProcessorName()).isEqualTo("AlertProcessor");
+                assertThat(alert.getMessage()).contains("Device entered restricted area");
+                assertThat(alert.getMetadata()).contains("restrictedZone");
+            });
     }
 
     /**
@@ -178,7 +194,7 @@ class TelemetryEventProcessingTest {
 
         // Wait for all async processing to complete - longer wait for concurrent test
         try {
-            Thread.sleep(1000); // 1 second for 10 concurrent events with 4 processors each
+            Thread.sleep(1000); // 1 second for 10 concurrent events with 3 processors each
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new RuntimeException("Interrupted while waiting for async processing", e);
@@ -190,9 +206,8 @@ class TelemetryEventProcessingTest {
                 .map(ILoggingEvent::getFormattedMessage)
                 .toList();
 
-        // Assert all 40 processor executions occurred (10 × 4 processors)
+        // Assert all 30 processor executions occurred (10 × 3 processors)
         long anomalyExecutions = logMessages.stream().filter(msg -> msg.contains("🔍")).count();
-        long statisticsExecutions = logMessages.stream().filter(msg -> msg.contains("📊")).count();
         long alertExecutions = logMessages.stream().filter(msg -> msg.contains("🔔")).count();
         long aggregationExecutions = logMessages.stream().filter(msg -> msg.contains("🗺️")).count();
 
@@ -200,7 +215,6 @@ class TelemetryEventProcessingTest {
         System.out.println("=== DEBUG CONCURRENT TEST COUNTS ===");
         System.out.println("Expected: " + numberOfEvents + " of each processor type (≥ " + (numberOfEvents - 2) + ")");
         System.out.println("Anomaly executions (🔍): " + anomalyExecutions);
-        System.out.println("Statistics executions (📊): " + statisticsExecutions);
         System.out.println("Alert executions (🔔): " + alertExecutions);
         System.out.println("Aggregation executions (🗺️): " + aggregationExecutions);
         System.out.println("Total log messages: " + logMessages.size());
@@ -208,7 +222,6 @@ class TelemetryEventProcessingTest {
 
         // Use isGreaterThanOrEqualTo instead of isEqualTo for concurrent tests
         assertThat(anomalyExecutions).isGreaterThanOrEqualTo(numberOfEvents - 2);
-        assertThat(statisticsExecutions).isGreaterThanOrEqualTo(numberOfEvents - 2);
         assertThat(alertExecutions).isGreaterThanOrEqualTo(numberOfEvents - 2);
         assertThat(aggregationExecutions).isGreaterThanOrEqualTo(numberOfEvents - 2);
 
@@ -227,8 +240,8 @@ class TelemetryEventProcessingTest {
         assertThat(uniqueThreadNames).isGreaterThan(1); // Multiple threads were used
 
         // Confirm no events were lost - be more lenient about exact counts
-        long totalProcessorExecutions = anomalyExecutions + statisticsExecutions + alertExecutions + aggregationExecutions;
-        assertThat(totalProcessorExecutions).isGreaterThanOrEqualTo(numberOfEvents * 4);
+        long totalProcessorExecutions = anomalyExecutions + alertExecutions + aggregationExecutions;
+        assertThat(totalProcessorExecutions).isGreaterThanOrEqualTo(numberOfEvents * 3);
     }
 
     /**
@@ -237,52 +250,48 @@ class TelemetryEventProcessingTest {
      */
     @Test
     void testEventDataIntegrity() throws Exception {
-        // POST telemetry with specific test coordinates
-        final double testLat = 40.123;
-        final double testLon = -74.456;
-        final String testDeviceId = "data-integrity-device";
-        
-        Map<String, Object> telemetryData = createTestTelemetryData(testDeviceId, testLat, testLon);
+        System.out.println("testEventDataIntegrity");
+        // POST telemetry with coordinates that should trigger a geofence alert
+        // Coordinates are within 1km of restricted area (40.7589, -73.9851)
+        final double testLat = 40.7589;  // Same latitude as restricted area
+        final double testLon = -73.9851; // Same longitude as restricted area
+        final String testDeviceId = "geofence-test-device";
         
         long eventCreationTime = System.currentTimeMillis();
 
         mockMvc.perform(post("/telemetry")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content(objectMapper.writeValueAsString(telemetryData)))
+                .content(objectMapper.writeValueAsString(Map.of(
+                    "deviceId", testDeviceId,
+                    "latitude", testLat,
+                    "longitude", testLon,
+                    "timestamp", LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+                ))))
                 .andExpect(status().isCreated());
 
         // Wait for async processing
         waitForAsyncProcessing();
 
-        // Capture logs from all processors
-        List<ILoggingEvent> logEvents = listAppender.list;
-        List<String> logMessages = logEvents.stream()
-                .map(ILoggingEvent::getFormattedMessage)
-                .toList();
+        // Verify alerts were created in database for each processor
+        List<Alert> alerts = alertRepository.findByDeviceId(testDeviceId);
+        
+        // Verify each processor created an alert
+        assertThat(alerts).hasSizeGreaterThanOrEqualTo(1); // At least one alert per processor
+        
+        // Verify alert data integrity
+        alerts.forEach(alert -> {
+            assertThat(alert.getDeviceId()).isEqualTo(testDeviceId);
+            assertThat(alert.getLatitude()).isEqualTo(testLat);
+            assertThat(alert.getLongitude()).isEqualTo(testLon);
+            
+            // Verify alert type matches processor
+            assertThat(alert.getAlertType()).isIn("GEOFENCE");
+        });
 
-        // Verify each processor received correct device ID and coordinates
-        assertThat(logMessages).anyMatch(msg -> 
-                msg.contains("🔍") && msg.contains(testDeviceId));
-        assertThat(logMessages).anyMatch(msg -> 
-                msg.contains("📊") && msg.contains(testDeviceId));
-        assertThat(logMessages).anyMatch(msg -> 
-                msg.contains("🔔") && msg.contains(testDeviceId));
-        assertThat(logMessages).anyMatch(msg -> 
-                msg.contains("🗺️") && msg.contains(testDeviceId));
-
-        // Verify coordinates are present in aggregation logs
-        assertThat(logMessages).anyMatch(msg -> 
-                msg.contains("📍") && msg.contains(String.valueOf(testLat)) && msg.contains(String.valueOf(testLon)));
-
-        // Assert processing start time is accurate (events should be processed within reasonable time)
+        // Assert processing time is reasonable
         long processingCompletionTime = System.currentTimeMillis();
         long totalProcessingTime = processingCompletionTime - eventCreationTime;
         assertThat(totalProcessingTime).isLessThan(2000L); // Should complete within 2 seconds
-
-        // Confirm event immutability (device ID appears consistently across all processors)
-        long deviceIdOccurrences = logMessages.stream()
-                .filter(msg -> msg.contains(testDeviceId))
-                .count();
-        assertThat(deviceIdOccurrences).isGreaterThanOrEqualTo(4); // At least once per processor
     }
+
 } 

@@ -21,10 +21,11 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
     implementation 'org.springframework.boot:spring-boot-starter-validation'
+
+    implementation 'org.springframework:spring-aspects'
     
-    // SQLite database
-    implementation 'org.xerial:sqlite-jdbc:3.44.1.0'
-    implementation 'org.hibernate.orm:hibernate-community-dialects:6.4.0.Final'
+    // H2 database (replaces SQLite for better concurrency)
+    implementation 'com.h2database:h2'
     
     // Testing
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
