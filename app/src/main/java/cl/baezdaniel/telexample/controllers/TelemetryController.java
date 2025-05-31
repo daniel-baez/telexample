@@ -1,5 +1,6 @@
 package cl.baezdaniel.telexample.controllers;
 
+import cl.baezdaniel.telexample.dto.TelemetryQueueItem;
 import cl.baezdaniel.telexample.entities.Telemetry;
 import cl.baezdaniel.telexample.events.TelemetryEvent;
 import cl.baezdaniel.telexample.repositories.TelemetryRepository;
@@ -56,14 +57,8 @@ public class TelemetryController {
         logger.debug("🚀 [QUEUE] Processing telemetry for device: {} (requestId: {})", 
                     telemetry.getDeviceId(), requestId);
         
-        // Create queue item as HashMap
-        Map<String, Object> queueItem = new HashMap<>();
-        queueItem.put(TelemetryQueueService.KEY_DEVICE_ID, telemetry.getDeviceId());
-        queueItem.put(TelemetryQueueService.KEY_LATITUDE, telemetry.getLatitude());
-        queueItem.put(TelemetryQueueService.KEY_LONGITUDE, telemetry.getLongitude());
-        queueItem.put(TelemetryQueueService.KEY_TIMESTAMP, telemetry.getTimestamp());
-        queueItem.put(TelemetryQueueService.KEY_REQUEST_ID, requestId);
-        queueItem.put(TelemetryQueueService.KEY_QUEUED_AT, LocalDateTime.now());
+        // Create queue item using record factory method
+        TelemetryQueueItem queueItem = TelemetryQueueItem.from(telemetry, requestId);
         
         // Attempt to enqueue
         boolean enqueued = queueService.offer(queueItem);
@@ -117,7 +112,7 @@ public class TelemetryController {
         logger.info("✅ [SYNC] Telemetry saved for device {} in {}ms (id: {})",
                    telemetry.getDeviceId(), responseTime, savedTelemetry.getId());
         
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        return ResponseEntity.status(HttpStatus.ACCEPTED).body(response);
     }
 
     @GetMapping("/devices/{deviceId}/telemetry/latest")

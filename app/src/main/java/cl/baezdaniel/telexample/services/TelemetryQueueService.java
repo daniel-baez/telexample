@@ -1,5 +1,6 @@
 package cl.baezdaniel.telexample.services;
 
+import cl.baezdaniel.telexample.dto.TelemetryQueueItem;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -10,9 +11,7 @@ import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadFactory;
@@ -31,14 +30,6 @@ public class TelemetryQueueService {
     
     private static final Logger logger = LoggerFactory.getLogger(TelemetryQueueService.class);
     
-    // HashMap keys for telemetry queue items
-    public static final String KEY_DEVICE_ID = "deviceId";
-    public static final String KEY_LATITUDE = "latitude";
-    public static final String KEY_LONGITUDE = "longitude";
-    public static final String KEY_TIMESTAMP = "timestamp";
-    public static final String KEY_QUEUED_AT = "queuedAt";
-    public static final String KEY_REQUEST_ID = "requestId";
-    
     // Configuration
     @Value("${telemetry.queue.enabled:false}")
     private boolean queueEnabled;
@@ -50,7 +41,7 @@ public class TelemetryQueueService {
     private int workerCount;
     
     // Core queue and worker management
-    private BlockingQueue<Map<String, Object>> queue;
+    private BlockingQueue<TelemetryQueueItem> queue;
     private List<QueueWorker> workers;
     private List<Thread> workerThreads;
     private volatile boolean running = false;
@@ -99,7 +90,7 @@ public class TelemetryQueueService {
         };
         
         for (int i = 0; i < workerCount; i++) {
-            QueueWorker worker = queueWorkerFactory.createWorker(queue, this::onItemProcessed);
+            QueueWorker worker = queueWorkerFactory.createWorker(i + 1, queue);
             workers.add(worker);
             
             Thread workerThread = threadFactory.newThread(worker);
@@ -116,7 +107,7 @@ public class TelemetryQueueService {
      * @param item The telemetry queue item to process
      * @return true if successfully enqueued, false if queue is full
      */
-    public boolean offer(Map<String, Object> item) {
+    public boolean offer(TelemetryQueueItem item) {
         if (!queueEnabled || queue == null) {
             return false; // Indicates caller should use sync processing
         }
@@ -127,12 +118,12 @@ public class TelemetryQueueService {
             enqueuedCount.incrementAndGet();
             
             logger.debug("✅ Enqueued telemetry for device {} (requestId: {}, queueSize: {})",
-                       item.get(KEY_DEVICE_ID), item.get(KEY_REQUEST_ID), queue.size());
+                       item.deviceId(), item.requestId(), queue.size());
         } else {
             overflowCount.incrementAndGet();
             
             logger.warn("⚠️ Queue overflow! Failed to enqueue telemetry for device {} (queueSize: {})",
-                       item.get(KEY_DEVICE_ID), queue.size());
+                       item.deviceId(), queue.size());
         }
         
         return enqueued;
@@ -167,29 +158,35 @@ public class TelemetryQueueService {
         );
     }
     
-    /**
-     * Callback when worker processes an item (for metrics)
-     */
-    private void onItemProcessed() {
-        processedCount.incrementAndGet();
-    }
-    
     @PreDestroy
     public void shutdown() {
+        shutdown(false);
+    }
+    
+    /**
+     * Shutdown with option for immediate or graceful shutdown
+     * @param immediate if true, force immediate shutdown without waiting
+     */
+    public void shutdown(boolean immediate) {
         if (!queueEnabled || !running) {
             return;
         }
         
-        logger.info("🛑 Shutting down telemetry queue service...");
+        logger.info("🛑 Shutting down telemetry queue service... (immediate: {})", immediate);
         running = false;
         
         // Stop all workers
-        workers.forEach(QueueWorker::stop);
+        workers.forEach(QueueWorker::shutdown);
         
         // Wait for worker threads to finish (with timeout)
+        long timeoutMs = immediate ? 100 : 5000; // 100ms for tests, 5s for normal shutdown
+        
         for (Thread workerThread : workerThreads) {
             try {
-                workerThread.join(5000); // 5 second timeout
+                if (immediate) {
+                    workerThread.interrupt(); // Force interrupt for immediate shutdown
+                }
+                workerThread.join(timeoutMs);
                 logger.info("✅ Worker thread {} stopped", workerThread.getName());
             } catch (InterruptedException e) {
                 logger.warn("⚠️ Interrupted while stopping worker thread {}", workerThread.getName());
@@ -202,6 +199,13 @@ public class TelemetryQueueService {
         logger.info("📊 Final queue statistics: {}", finalStats);
         
         logger.info("✅ Telemetry queue service shutdown complete");
+    }
+    
+    /**
+     * Force immediate shutdown for tests - no graceful waiting
+     */
+    public void immediateShutdown() {
+        shutdown(true);
     }
     
     /**
