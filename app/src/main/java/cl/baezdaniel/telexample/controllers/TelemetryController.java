@@ -3,6 +3,8 @@ package cl.baezdaniel.telexample.controllers;
 import cl.baezdaniel.telexample.entities.Telemetry;
 import cl.baezdaniel.telexample.events.TelemetryEvent;
 import cl.baezdaniel.telexample.repositories.TelemetryRepository;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.Timer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,30 +25,63 @@ public class TelemetryController {
 
     private static final Logger logger = LoggerFactory.getLogger(TelemetryController.class);
 
-    @Autowired
-    private TelemetryRepository telemetryRepository;
+    private final TelemetryRepository telemetryRepository;
+    private final ApplicationEventPublisher eventPublisher;
+    
+    // Metrics
+    private final Counter telemetryEventsCounter;
+    private final Counter telemetryEventsPublishedCounter;
+    private final Timer telemetryProcessingTimer;
 
     @Autowired
-    private ApplicationEventPublisher eventPublisher;
+    public TelemetryController(TelemetryRepository telemetryRepository, 
+                              ApplicationEventPublisher eventPublisher,
+                              Counter telemetryEventsCounter,
+                              Counter telemetryEventsPublishedCounter,
+                              Timer telemetryProcessingTimer) {
+        this.telemetryRepository = telemetryRepository;
+        this.eventPublisher = eventPublisher;
+        this.telemetryEventsCounter = telemetryEventsCounter;
+        this.telemetryEventsPublishedCounter = telemetryEventsPublishedCounter;
+        this.telemetryProcessingTimer = telemetryProcessingTimer;
+    }
 
     @PostMapping("/telemetry")
     public ResponseEntity<Map<String, Object>> createTelemetry(@Valid @RequestBody Telemetry telemetry) {
-        logger.info("Creating telemetry for device: {}", telemetry.getDeviceId());
+        Timer.Sample sample = Timer.start();
         
-        Telemetry savedTelemetry = telemetryRepository.save(telemetry);
-        System.out.println("savedTelemetry: " + savedTelemetry);
-        
-        // 🚀 Publish event for async processing
-        TelemetryEvent event = new TelemetryEvent(this, savedTelemetry);
-        eventPublisher.publishEvent(event);
-        logger.info("📡 Published telemetry event for device: {}", savedTelemetry.getDeviceId());
-        
-        Map<String, Object> response = new HashMap<>();
-        response.put("id", savedTelemetry.getId());
-        response.put("deviceId", savedTelemetry.getDeviceId());
-        response.put("message", "Telemetry data saved successfully");
-        
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        try {
+            // Increment counter for received events
+            telemetryEventsCounter.increment();
+            
+            logger.info("Creating telemetry for device: {}", telemetry.getDeviceId());
+            
+            Telemetry savedTelemetry = telemetryRepository.save(telemetry);
+            System.out.println("savedTelemetry: " + savedTelemetry);
+            
+            // 🚀 Publish event for async processing
+            TelemetryEvent event = new TelemetryEvent(this, savedTelemetry);
+            eventPublisher.publishEvent(event);
+            
+            // Increment counter for published events
+            telemetryEventsPublishedCounter.increment();
+            
+            logger.info("📡 Published telemetry event for device: {}", savedTelemetry.getDeviceId());
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("id", savedTelemetry.getId());
+            response.put("deviceId", savedTelemetry.getDeviceId());
+            response.put("message", "Telemetry data saved successfully");
+            
+            return ResponseEntity.status(HttpStatus.CREATED).body(response);
+            
+        } catch (Exception e) {
+            logger.error("Error processing telemetry for device {}: {}", telemetry.getDeviceId(), e.getMessage(), e);
+            throw e; // Re-throw to let Spring handle the error response
+        } finally {
+            // Record processing time
+            sample.stop(telemetryProcessingTimer);
+        }
     }
 
     @GetMapping("/devices/{deviceId}/telemetry/latest")
