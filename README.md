@@ -72,3 +72,9 @@ curl http://localhost:8080/devices/device123/telemetry/latest
 ```
 
 The application will start on `http://localhost:8080` and use an SQLite database file `telemetry.db` for data persistence.
+
+# configuration options
+
+The system is highly configurable featuring the following properties for customization
+
+- ``
