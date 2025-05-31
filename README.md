@@ -17,8 +17,10 @@ This service manages telemetry update messages from Orb devices, providing robus
 - 🔐 **Configurable Authentication**: API key-based security system
 - 🛡️ **Advanced Rate Limiting**: Per-device and global rate controls
 - ⚡ **Async Processing Pipeline**: Real-time anomaly detection and aggregation
-- 🔔 **Intelligent Alerting**: Multi-severity alert system with deduplication
+- 🔔 **Intelligent Alerting**: Multi-severity alert system
+- 📄 **Paginated APIs**: Efficient large dataset handling with configurable page sizes
 - 📊 **Performance Optimization**: Lightweight configs and comprehensive monitoring
+- 📈 **Metrics & Monitoring**: Prometheus-compatible metrics for performance evaluation
 - 🧪 **Isolated Performance Testing**: Separate test suite for development optimization
 
 ---
@@ -82,7 +84,12 @@ Authorization: Bearer {API_KEY} (if auth enabled)
 - `severity` (optional): `LOW`, `MEDIUM`, `HIGH`, `CRITICAL`
 - `alertType` (optional): `ANOMALY`, `OFFLINE`, `BATTERY_LOW`, etc.
 - `page` (optional): Pagination (default: 0)
-- `size` (optional): Results per page (default: 20)
+- `size` (optional): Results per page (default: 20, max: 100)
+
+**Pagination Benefits:**
+- **Fleet Scale**: Efficiently handle thousands of alerts across large device fleets
+- **Performance**: Fast response times even with extensive alert histories
+- **Client Control**: Configurable page sizes for different UI requirements
 
 **Response:**
 ```json
@@ -144,6 +151,11 @@ telemetry.processing.queue-capacity=200
 # Database Connection Pool
 spring.datasource.hikari.maximum-pool-size=15
 spring.datasource.hikari.minimum-idle=5
+
+# Metrics & Monitoring (Prometheus-compatible)
+management.endpoints.web.exposure.include=health,metrics,prometheus
+management.endpoint.metrics.enabled=true
+management.endpoint.prometheus.enabled=true
 ```
 
 ### **Production vs Development Configs**
@@ -193,6 +205,12 @@ curl -X POST http://localhost:8080/api/v1/telemetry \
 
 # Check for generated alerts
 curl "http://localhost:8080/api/v1/alerts?deviceId=orb-demo-001"
+
+# Access performance metrics (Prometheus format)
+curl http://localhost:8080/actuator/prometheus
+
+# Check system health
+curl http://localhost:8080/actuator/health
 ```
 
 ---
@@ -205,6 +223,7 @@ curl "http://localhost:8080/api/v1/alerts?deviceId=orb-demo-001"
 3. **Scalable Rate Controls**: Prevent runaway devices from impacting fleet operations
 4. **Async Processing**: High-throughput data ingestion without blocking device communications
 5. **Comprehensive Monitoring**: Detailed alerting with contextual metadata
+6. **Efficient Pagination**: Handle large-scale fleet data with configurable page sizes and fast queries
 
 ### **Error Handling & Resilience**
 - **Rate Limiting**: Protects against malfunctioning devices sending excessive data
@@ -258,10 +277,96 @@ curl "http://localhost:8080/api/v1/alerts?deviceId=orb-demo-001"
 ## 🚀 Future Enhancements
 
 1. **Containerization**: Docker support for easy deployment
-2. **Metrics Integration**: Prometheus/Grafana monitoring dashboards  
+2. **Advanced Monitoring**: Grafana dashboards and alerting on top of existing Prometheus metrics  
 3. **Event Streaming**: Kafka integration for real-time fleet analytics
 4. **Geographic Analytics**: Advanced location-based fleet insights
 5. **Machine Learning**: Predictive anomaly detection models
+
+---
+
+## 🎮 Complete End-to-End Example
+
+Here's a complete walkthrough demonstrating the full Orb Fleet Management workflow:
+
+### **Step 1: Start Server with Authentication Enabled**
+```bash
+# Clone and build the project
+git clone <repository>
+cd dbaez-telemetry-example
+./gradlew build
+
+# Start server with authentication enabled
+ENDPOINT_AUTH_ENABLED=true ./gradlew bootRun
+
+# Server starts at http://localhost:8080 with API key authentication
+```
+
+### **Step 2: Submit Telemetry Data with API Key**
+```bash
+# Submit telemetry using hardcoded test API key
+curl -X POST http://localhost:8080/api/v1/telemetry \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer valid-test-key" \
+  -d '{
+    "deviceId": "orb-fleet-001",
+    "latitude": 40.7580,
+    "longitude": -73.9855,
+    "timestamp": "2023-12-01T15:30:00"
+  }'
+
+# Expected response: 202 Accepted
+# Async processing will trigger anomaly detection and alert generation
+```
+
+### **Step 3: Submit Additional Data to Trigger Anomaly**
+```bash
+# Submit telemetry from a significantly different location (triggers GPS anomaly)
+curl -X POST http://localhost:8080/api/v1/telemetry \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer valid-test-key" \
+  -d '{
+    "deviceId": "orb-fleet-001",
+    "latitude": 34.0522,
+    "longitude": -118.2437,
+    "timestamp": "2023-12-01T15:35:00"
+  }'
+
+# This triggers anomaly detection due to large GPS deviation
+```
+
+### **Step 4: Query Generated Alerts**
+```bash
+# Query alerts for the specific device
+curl -H "Authorization: Bearer valid-test-key" \
+  "http://localhost:8080/api/v1/alerts?deviceId=orb-fleet-001"
+
+# Query all high-severity alerts across the fleet
+curl -H "Authorization: Bearer valid-test-key" \
+  "http://localhost:8080/api/v1/alerts?severity=HIGH"
+
+# Query with pagination
+curl -H "Authorization: Bearer valid-test-key" \
+  "http://localhost:8080/api/v1/alerts?page=0&size=10"
+```
+
+### **Step 5: Monitor System Health**
+```bash
+# Check system health
+curl http://localhost:8080/actuator/health
+
+# View performance metrics
+curl http://localhost:8080/actuator/prometheus | grep telemetry
+```
+
+### **Expected Results**
+- **Telemetry Submission**: Returns `202 Accepted` for successful async processing
+- **Alert Generation**: Automatic anomaly detection creates alerts for GPS deviations
+- **Fleet Monitoring**: Comprehensive alert querying with filtering and pagination
+- **System Observability**: Health checks and performance metrics available
+
+**Default API Keys for Testing:**
+- `valid-test-key` - Full access for testing
+- `demo-api-key` - Alternative test key
 
 ---
 
