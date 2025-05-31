@@ -28,12 +28,26 @@ sourceSets {
         compileClasspath += main.output + test.output
         runtimeClasspath += main.output + test.output
     }
+    
+    benchmark {
+        java {
+            srcDir 'src/benchmark/java'
+        }
+        resources {
+            srcDir 'src/benchmark/resources'
+        }
+        compileClasspath += main.output + test.output
+        runtimeClasspath += main.output + test.output
+    }
 }
 
 // Configure performance test dependencies
 configurations {
     performanceTestImplementation.extendsFrom testImplementation
     performanceTestRuntimeOnly.extendsFrom testRuntimeOnly
+    
+    benchmarkImplementation.extendsFrom testImplementation
+    benchmarkRuntimeOnly.extendsFrom testRuntimeOnly
 }
 
 // Handle duplicate resources in performance tests
@@ -125,6 +139,39 @@ task performanceTest(type: Test) {
     onlyIf { project.hasProperty('runPerformanceTests') || gradle.startParameter.taskNames.contains('performanceTest') }
 }
 
+// Create benchmark task for comparing queue vs sync processing
+task benchmark(type: Test) {
+    description = 'Runs benchmarks comparing queue-based vs synchronous processing'
+    group = 'benchmark'
+    
+    testClassesDirs = sourceSets.benchmark.output.classesDirs
+    classpath = sourceSets.benchmark.runtimeClasspath
+    
+    useJUnitPlatform()
+    
+    // Use benchmark-specific configuration
+    systemProperty 'spring.profiles.active', 'benchmark'
+    
+    testLogging {
+        outputs.upToDateWhen {false}
+        showStandardStreams = true
+        events "passed", "skipped", "failed"
+        exceptionFormat "full"
+    }
+    
+    // Benchmarks need more time and memory
+    systemProperty 'junit.jupiter.execution.timeout.default', '600s'
+    
+    // JVM settings optimized for benchmarking
+    jvmArgs '-Xmx4g', '-Xms2g', '-XX:+UseG1GC', '-XX:+PrintGC'
+    
+    // Only include benchmark tests
+    include '**/benchmark/**'
+    
+    // Don't run benchmarks by default
+    onlyIf { project.hasProperty('runBenchmarks') || gradle.startParameter.taskNames.contains('benchmark') }
+}
+
 // Create a combined test task for CI
 task testAll {
     description = 'Runs all tests including performance tests'
@@ -135,4 +182,14 @@ task testAll {
 // Ensure performance test compilation depends on test compilation
 tasks.named('compilePerformanceTestJava') {
     dependsOn tasks.named('compileTestJava')
+}
+
+// Ensure benchmark compilation depends on test compilation
+tasks.named('compileBenchmarkJava') {
+    dependsOn tasks.named('compileTestJava')
+}
+
+// Handle duplicate resources in benchmark tests
+tasks.named('processBenchmarkResources') {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 }
