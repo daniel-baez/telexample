@@ -16,45 +16,6 @@ repositories {
     mavenCentral()
 }
 
-// Configure source sets for performance tests
-sourceSets {
-    performanceTest {
-        java {
-            srcDir 'src/performanceTest/java'
-        }
-        resources {
-            srcDir 'src/performanceTest/resources'
-        }
-        compileClasspath += main.output + test.output
-        runtimeClasspath += main.output + test.output
-    }
-    
-    benchmark {
-        java {
-            srcDir 'src/benchmark/java'
-        }
-        resources {
-            srcDir 'src/benchmark/resources'
-        }
-        compileClasspath += main.output + test.output
-        runtimeClasspath += main.output + test.output
-    }
-}
-
-// Configure performance test dependencies
-configurations {
-    performanceTestImplementation.extendsFrom testImplementation
-    performanceTestRuntimeOnly.extendsFrom testRuntimeOnly
-    
-    benchmarkImplementation.extendsFrom testImplementation
-    benchmarkRuntimeOnly.extendsFrom testRuntimeOnly
-}
-
-// Handle duplicate resources in performance tests
-tasks.named('processPerformanceTestResources') {
-    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
-}
-
 dependencies {
     // Spring Boot starters
     implementation 'org.springframework.boot:spring-boot-starter-web'
@@ -84,10 +45,6 @@ dependencies {
     testImplementation 'org.awaitility:awaitility:4.2.0'
     testImplementation 'org.junit.jupiter:junit-jupiter'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
-    
-    // Performance test dependencies (inherit from test)
-    performanceTestImplementation sourceSets.main.output
-    performanceTestImplementation sourceSets.test.output
 }
 
 // Apply a specific Java toolchain to ease working on different environments.
@@ -97,7 +54,7 @@ java {
     }
 }
 
-// Configure regular tests (exclude performance tests)
+// Configure regular tests
 tasks.named('test') {
     // Use JUnit Platform for unit tests.
     useJUnitPlatform()
@@ -106,95 +63,5 @@ tasks.named('test') {
         outputs.upToDateWhen {false}
         showStandardStreams = true
     }
-    
-    // Exclude performance tests from regular test task
-    exclude '**/performance/**'
 }
 
-// Create performance test task
-task performanceTest(type: Test) {
-    description = 'Runs performance tests'
-    group = 'verification'
-    
-    testClassesDirs = sourceSets.performanceTest.output.classesDirs
-    classpath = sourceSets.performanceTest.runtimeClasspath
-    
-    useJUnitPlatform()
-    
-    // Use performance-specific configuration
-    systemProperty 'spring.profiles.active', 'performance'
-    
-    testLogging {
-        outputs.upToDateWhen {false}
-        showStandardStreams = true
-        events "passed", "skipped", "failed"
-        exceptionFormat "full"
-    }
-    
-    // Performance tests need more time
-    systemProperty 'junit.jupiter.execution.timeout.default', '300s'
-    
-    // JVM settings for performance tests
-    jvmArgs '-Xmx2g', '-Xms1g'
-    
-    // Only include performance tests
-    include '**/performance/**'
-    
-    // Don't run performance tests by default
-    onlyIf { project.hasProperty('runPerformanceTests') || gradle.startParameter.taskNames.contains('performanceTest') }
-}
-
-// Create benchmark task for comparing queue vs sync processing
-task benchmark(type: Test) {
-    description = 'Runs benchmarks comparing queue-based vs synchronous processing'
-    group = 'benchmark'
-    
-    testClassesDirs = sourceSets.benchmark.output.classesDirs
-    classpath = sourceSets.benchmark.runtimeClasspath
-    
-    useJUnitPlatform()
-    
-    // Use benchmark-specific configuration
-    systemProperty 'spring.profiles.active', 'benchmark'
-    
-    testLogging {
-        outputs.upToDateWhen {false}
-        showStandardStreams = true
-        events "passed", "skipped", "failed"
-        exceptionFormat "full"
-    }
-    
-    // Benchmarks need more time and memory
-    systemProperty 'junit.jupiter.execution.timeout.default', '600s'
-    
-    // JVM settings optimized for benchmarking
-    jvmArgs '-Xmx4g', '-Xms2g', '-XX:+UseG1GC', '-XX:+PrintGC'
-    
-    // Only include benchmark tests
-    include '**/benchmark/**'
-    
-    // Don't run benchmarks by default
-    onlyIf { project.hasProperty('runBenchmarks') || gradle.startParameter.taskNames.contains('benchmark') }
-}
-
-// Create a combined test task for CI
-task testAll {
-    description = 'Runs all tests including performance tests'
-    group = 'verification'
-    dependsOn test, performanceTest
-}
-
-// Ensure performance test compilation depends on test compilation
-tasks.named('compilePerformanceTestJava') {
-    dependsOn tasks.named('compileTestJava')
-}
-
-// Ensure benchmark compilation depends on test compilation
-tasks.named('compileBenchmarkJava') {
-    dependsOn tasks.named('compileTestJava')
-}
-
-// Handle duplicate resources in benchmark tests
-tasks.named('processBenchmarkResources') {
-    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
-}
