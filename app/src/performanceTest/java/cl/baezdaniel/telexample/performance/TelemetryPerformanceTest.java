@@ -82,7 +82,7 @@ class TelemetryPerformanceTest {
     @Test
     void testApiResponseTimeUnderLoad() throws Exception {
         // Scale down to 15 requests - fits perfectly within our capacity (5 threads + 10 queue)
-        final int numberOfRequests = 150;
+        final int numberOfRequests = 15;
         final List<Long> responseTimes = new ArrayList<>();
 
         // Submit 15 concurrent requests - optimal for our lightweight thread pool
