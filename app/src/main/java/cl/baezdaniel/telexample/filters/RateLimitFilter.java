@@ -15,7 +15,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
-import java.util.Set;
+import java.util.Map;
 
 @Component
 @Order(1) // High priority filter
@@ -24,9 +24,9 @@ public class RateLimitFilter extends OncePerRequestFilter {
     private static final Logger logger = LoggerFactory.getLogger(RateLimitFilter.class);
     
     // Endpoints to apply rate limiting
-    private static final Set<String> RATE_LIMITED_ENDPOINTS = Set.of(
-        "/telemetry",
-        "/api/alerts"
+    private static final Map<String, String> RATE_LIMITED_ENDPOINTS = Map.of(
+        "/api/v1/telemetry", "POST",
+        "/api/v1/alerts", "GET"
     );
     
     private final RateLimitService rateLimitService;
@@ -80,14 +80,8 @@ public class RateLimitFilter extends OncePerRequestFilter {
      * Determines if rate limiting should be applied to this request
      */
     private boolean shouldApplyRateLimit(String requestURI, String method) {
-        // Apply to telemetry POST endpoints and alert GET endpoints
-        if ("/telemetry".equals(requestURI) && "POST".equals(method)) {
-            return true;
-        }
-        if (requestURI.startsWith("/api/alerts") && "GET".equals(method)) {
-            return true;
-        }
-        return false;
+        return RATE_LIMITED_ENDPOINTS.entrySet().stream().anyMatch(entry -> 
+            requestURI.startsWith(entry.getKey()) && entry.getValue().equals(method));
     }
     
     /**
@@ -99,16 +93,16 @@ public class RateLimitFilter extends OncePerRequestFilter {
         String requestURI = request.getRequestURI();
         
         // For telemetry endpoints, try to extract device ID from parameters or path
-        if (requestURI.startsWith("/telemetry")) {
+        if (requestURI.startsWith("/api/v1/telemetry")) {
             String deviceId = request.getParameter("deviceId");
             if (deviceId != null && !deviceId.trim().isEmpty()) {
                 return "device:" + deviceId;
             }
         }
         
-        // For alert endpoints, extract device ID from path
-        if (requestURI.startsWith("/api/alerts/")) {
-            String pathInfo = requestURI.substring("/api/alerts/".length());
+        // For alert endpoints, extract device ID from path - versioned only
+        if (requestURI.startsWith("/api/v1/alerts/")) {
+            String pathInfo = requestURI.substring("/api/v1/alerts/".length());
             if (!pathInfo.isEmpty() && !pathInfo.contains("/")) {
                 return "device:" + pathInfo;
             }

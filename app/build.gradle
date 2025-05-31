@@ -54,6 +54,27 @@ java {
     }
 }
 
+// Configure source sets for performance tests
+sourceSets {
+    performanceTest {
+        java {
+            srcDir 'src/performanceTest/java'
+        }
+        resources {
+            srcDir 'src/performanceTest/resources'
+        }
+        compileClasspath += sourceSets.main.output + sourceSets.test.output
+        runtimeClasspath += sourceSets.main.output + sourceSets.test.output
+    }
+}
+
+// Configure dependencies for performance tests
+configurations {
+    performanceTestImplementation.extendsFrom testImplementation
+    performanceTestRuntimeOnly.extendsFrom testRuntimeOnly
+}
+
+// Configure regular tests (explicitly exclude performance tests)
 tasks.named('test') {
     // Use JUnit Platform for unit tests.
     useJUnitPlatform()
@@ -63,3 +84,25 @@ tasks.named('test') {
         showStandardStreams = true
     }
 }
+
+// Create performance test task
+task performanceTest(type: Test) {
+    description = 'Runs performance tests for development purposes'
+    group = 'verification'
+    
+    testClassesDirs = sourceSets.performanceTest.output.classesDirs
+    classpath = sourceSets.performanceTest.runtimeClasspath
+    
+    useJUnitPlatform()
+    
+    testLogging {
+        outputs.upToDateWhen {false}
+        showStandardStreams = true
+        events "passed", "skipped", "failed"
+        exceptionFormat "full"
+    }
+    
+    // Performance tests should not run as part of regular build
+    shouldRunAfter test
+}
+

@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,9 +22,14 @@ import java.util.Map;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
+/**
+ * Integration tests for TelemetryController
+ * Tests the REST API endpoints for telemetry data submission and retrieval
+ */
 @SpringBootTest
 @AutoConfigureMockMvc
 @Transactional
+@TestPropertySource(properties = "endpoint.auth.enabled=false")
 class TelemetryControllerTest {
 
     @Autowired
@@ -54,14 +60,14 @@ class TelemetryControllerTest {
         telemetryData.put("longitude", -74.0060);
         telemetryData.put("timestamp", LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
 
-        mockMvc.perform(post("/telemetry")
+        mockMvc.perform(post("/api/v1/telemetry")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(telemetryData)))
                 .andExpect(status().isBadRequest());
     }
 
     /**
-     * Tests that posting valid telemetry data with all required fields returns a 201 Created
+     * Tests that posting valid telemetry data with all required fields returns a 202 Accepted
      * and includes an ID in the response. This verifies the successful creation of telemetry records.
      */
     @Test
@@ -72,12 +78,11 @@ class TelemetryControllerTest {
         telemetryData.put("longitude", -74.0060);
         telemetryData.put("timestamp", LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
 
-        mockMvc.perform(post("/telemetry")
+        mockMvc.perform(post("/api/v1/telemetry")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(telemetryData)))
-                .andExpect(status().isCreated())
+                .andExpect(status().isAccepted())
                 .andExpect(jsonPath("$.id").isNumber());
-        
     }
 
     /**
@@ -86,7 +91,7 @@ class TelemetryControllerTest {
      */
     @Test
     void testGetLatestTelemetryWhenNoData() throws Exception {
-        mockMvc.perform(get("/devices/nonexistent/telemetry/latest"))
+        mockMvc.perform(get("/api/v1/telemetry/devices/nonexistent/latest"))
                 .andExpect(status().isNotFound());
     }
 
@@ -109,10 +114,10 @@ class TelemetryControllerTest {
         telemetryData1.put("longitude", -74.0060);
         telemetryData1.put("timestamp", t1.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
 
-        mockMvc.perform(post("/telemetry")
+        mockMvc.perform(post("/api/v1/telemetry")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(telemetryData1)))
-                .andExpect(status().isCreated());
+                .andExpect(status().isAccepted());
 
         // Second post with later timestamp
         Map<String, Object> telemetryData2 = new HashMap<>();
@@ -121,13 +126,13 @@ class TelemetryControllerTest {
         telemetryData2.put("longitude", -87.6298);
         telemetryData2.put("timestamp", t2.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
 
-        mockMvc.perform(post("/telemetry")
+        mockMvc.perform(post("/api/v1/telemetry")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(telemetryData2)))
-                .andExpect(status().isCreated());
+                .andExpect(status().isAccepted());
 
         // Get latest should return the second record (with T2)
-        mockMvc.perform(get("/devices/device456/telemetry/latest"))
+        mockMvc.perform(get("/api/v1/telemetry/devices/device456/latest"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.deviceId").value("device456"))
                 .andExpect(jsonPath("$.latitude").value(41.8781))

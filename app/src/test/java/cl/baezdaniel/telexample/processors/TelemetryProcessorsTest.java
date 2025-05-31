@@ -3,6 +3,7 @@ package cl.baezdaniel.telexample.processors;
 import cl.baezdaniel.telexample.entities.Alert;
 import cl.baezdaniel.telexample.entities.Telemetry;
 import cl.baezdaniel.telexample.events.TelemetryEvent;
+import cl.baezdaniel.telexample.repositories.AlertRepository;
 import cl.baezdaniel.telexample.services.AlertService;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
@@ -12,9 +13,11 @@ import org.junit.jupiter.api.Test;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.test.context.TestPropertySource;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -23,10 +26,11 @@ import java.util.stream.Collectors;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Unit tests for individual telemetry processor methods.
- * Tests isolated processor behavior, logging, and timing requirements.
+ * Unit tests for TelemetryProcessors
  */
 @SpringBootTest
+@Transactional
+@TestPropertySource(properties = "endpoint.auth.enabled=false")
 class TelemetryProcessorsTest {
 
     @Autowired

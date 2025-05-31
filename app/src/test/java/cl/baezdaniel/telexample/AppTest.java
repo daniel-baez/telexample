@@ -5,11 +5,22 @@ package cl.baezdaniel.telexample;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.TestPropertySource;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
+/**
+ * Simple application startup test
+ */
 @SpringBootTest
+@ActiveProfiles("test")
+@TestPropertySource(properties = "endpoint.auth.enabled=false")
 class AppTest {
-    @Test 
+
+    @Test
     void contextLoads() {
-        // Test that the Spring context loads successfully
+        // Test that the Spring application context loads successfully
+        assertThat(true).isTrue();
     }
 }

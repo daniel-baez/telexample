@@ -34,6 +34,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 @TestPropertySource(properties = {
+    "endpoint.auth.enabled=false",
     "rate-limit.enabled=true",
     "rate-limit.telemetry.device.requests-per-minute=20",
     "rate-limit.ip.requests-per-minute=50", 
@@ -157,10 +158,10 @@ public class RateLimitTest {
                 """;
 
             // First request should succeed with rate limit headers
-            mockMvc.perform(post("/telemetry")
+            mockMvc.perform(post("/api/v1/telemetry")
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(telemetryJson))
-                    .andExpect(status().isCreated())
+                    .andExpect(status().isAccepted())
                     .andExpect(header().exists("X-RateLimit-Remaining"))
                     .andExpect(header().exists("X-RateLimit-Reset"));
         }
@@ -169,7 +170,7 @@ public class RateLimitTest {
         @DisplayName("Should apply rate limiting to alerts endpoint")
         void shouldApplyRateLimitingToAlertsEndpoint() throws Exception {
             // First request should succeed with rate limit headers
-            mockMvc.perform(get("/api/alerts/integration-test-device"))
+            mockMvc.perform(get("/api/v1/alerts/integration-test-device"))
                     .andExpect(status().isOk())
                     .andExpect(header().exists("X-RateLimit-Remaining"))
                     .andExpect(header().exists("X-RateLimit-Reset"));
@@ -190,13 +191,13 @@ public class RateLimitTest {
 
             // Exhaust the rate limit by making many requests quickly
             for (int i = 0; i < 100; i++) {
-                mockMvc.perform(post("/telemetry")
+                mockMvc.perform(post("/api/v1/telemetry")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(telemetryJson));
             }
 
             // Next request should be rate limited
-            MvcResult result = mockMvc.perform(post("/telemetry")
+            MvcResult result = mockMvc.perform(post("/api/v1/telemetry")
                     .contentType(MediaType.APPLICATION_JSON)
                     .content(telemetryJson))
                     .andExpect(status().isTooManyRequests())
@@ -223,7 +224,7 @@ public class RateLimitTest {
         @DisplayName("Should use IP-based rate limiting when device ID not available")
         void shouldUseIpBasedRateLimitingWhenDeviceIdNotAvailable() throws Exception {
             // Make request without device ID in path or parameters
-            mockMvc.perform(get("/api/alerts")
+            mockMvc.perform(get("/api/v1/alerts")
                     .header("X-Forwarded-For", "192.168.1.100"))
                     .andExpect(status().isOk())
                     .andExpect(header().exists("X-RateLimit-Remaining"));

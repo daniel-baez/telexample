@@ -178,8 +178,10 @@ public class AlertService {
     private String determineSeverity(String alertType, String message) {
         switch (alertType.toUpperCase()) {
             case "ANOMALY":
-                if (message.contains("Invalid coordinates") || message.contains("extreme")) {
+                if (message.contains("Invalid coordinates")) {
                     return "HIGH";
+                } else if (message.contains("Extreme location")) {
+                    return "LOW";
                 } else if (message.contains("suspicious")) {
                     return "MEDIUM";
                 } else {

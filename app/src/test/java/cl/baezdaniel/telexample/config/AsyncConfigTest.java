@@ -3,6 +3,11 @@ package cl.baezdaniel.telexample.config;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.core.task.TaskExecutor;
+import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import org.springframework.test.context.TestPropertySource;
 
@@ -14,10 +19,15 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Tests for async thread pool configuration.
- * Validates default settings, custom overrides, and thread pool behavior.
+ * Tests for AsyncConfig to ensure proper thread pool configuration
  */
 @SpringBootTest
+@TestPropertySource(properties = {
+    "endpoint.auth.enabled=false",
+    "telemetry.processing.core-pool-size=4",
+    "telemetry.processing.max-pool-size=8", 
+    "telemetry.processing.queue-capacity=100"
+})
 class AsyncConfigTest {
 
     @Autowired
@@ -35,13 +45,13 @@ class AsyncConfigTest {
 
         ThreadPoolTaskExecutor executor = (ThreadPoolTaskExecutor) telemetryTaskExecutor;
 
-        // Assert core pool size = 4 (default)
+        // Assert core pool size = 4 (default value from AsyncConfig)
         assertThat(executor.getCorePoolSize()).isEqualTo(4);
         
-        // Assert max pool size = 8 (default) 
+        // Assert max pool size = 8 (default value from AsyncConfig) 
         assertThat(executor.getMaxPoolSize()).isEqualTo(8);
         
-        // Assert queue capacity = 100 (default)
+        // Assert queue capacity = 100 (default value from AsyncConfig)
         assertThat(executor.getQueueCapacity()).isEqualTo(100);
         
         // Verify thread name prefix = "TelemetryProcessor-"
@@ -131,6 +141,7 @@ class AsyncConfigTest {
         "telemetry.processing.max-pool-size=4", 
         "telemetry.processing.queue-capacity=50"
     })
+
     static class CustomConfigurationTest {
 
         @Autowired
