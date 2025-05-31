@@ -1,7 +1,5 @@
 package cl.baezdaniel.telexample.services;
 
-import cl.baezdaniel.telexample.dto.AlertCreationRequest;
-import cl.baezdaniel.telexample.dto.AlertFilterRequest;
 import cl.baezdaniel.telexample.entities.Alert;
 import cl.baezdaniel.telexample.repositories.AlertRepository;
 import org.slf4j.Logger;
@@ -18,6 +16,9 @@ import java.security.NoSuchAlgorithmException;
 import java.time.LocalDateTime;
 import java.util.Optional;
 
+/**
+ * Service for managing alerts with improved concurrency handling
+ */
 @Service
 public class AlertService {
     
@@ -32,21 +33,28 @@ public class AlertService {
     /**
      * Create a new alert with deduplication logic and retry handling for concurrency
      */
-    public Alert createAlert(AlertCreationRequest request) {
-        if (request == null) {
-            throw new IllegalArgumentException("Alert creation request cannot be null");
+    public Alert createAlert(String deviceId, String alertType, String message, 
+                           Double latitude, Double longitude, String processorName, String metadata) {
+        if (deviceId == null || deviceId.trim().isEmpty()) {
+            throw new IllegalArgumentException("Device ID cannot be null or empty");
+        }
+        if (alertType == null || alertType.trim().isEmpty()) {
+            throw new IllegalArgumentException("Alert type cannot be null or empty");
+        }
+        if (message == null || message.trim().isEmpty()) {
+            throw new IllegalArgumentException("Alert message cannot be null or empty");
         }
         
-        return createAlertInternal(request);
+        return createAlertInternal(deviceId, alertType, message, latitude, longitude, processorName, metadata);
     }
     
     @Transactional
-    private Alert createAlertInternal(AlertCreationRequest request) {
-        logger.debug("Creating alert for device {}: {}", request.getDeviceId(), request.getAlertType());
+    private Alert createAlertInternal(String deviceId, String alertType, String message, 
+                                    Double latitude, Double longitude, String processorName, String metadata) {
+        logger.debug("Creating alert for device {}: {}", deviceId, alertType);
         
         // Generate fingerprint for deduplication
-        String fingerprint = generateFingerprint(request.getDeviceId(), request.getAlertType(), 
-                                               request.getLatitude(), request.getLongitude());
+        String fingerprint = generateFingerprint(deviceId, alertType, latitude, longitude);
         
         // IMPROVED: Use synchronized block for critical section to prevent race conditions
         synchronized (this) {
@@ -58,19 +66,19 @@ public class AlertService {
             }
             
             // Determine severity based on alert type and context
-            String severity = determineSeverity(request.getAlertType(), request.getMessage());
+            String severity = determineSeverity(alertType, message);
             
             // Create new alert
             Alert alert = new Alert(
-                request.getDeviceId(),
-                request.getAlertType(),
+                deviceId,
+                alertType,
                 severity,
-                request.getMessage(),
-                request.getLatitude(),
-                request.getLongitude(),
-                request.getProcessorName(),
+                message,
+                latitude,
+                longitude,
+                processorName,
                 fingerprint,
-                request.getMetadata()
+                metadata
             );
             
             Alert savedAlert = alertRepository.save(alert);
@@ -90,18 +98,31 @@ public class AlertService {
     }
     
     /**
-     * Get alerts with advanced filtering
+     * Get alerts with advanced filtering using direct parameters
      */
-    public Page<Alert> getAlertsWithFilters(AlertFilterRequest filters, Pageable pageable) {
-        logger.debug("Fetching alerts with filters: {}", filters);
-        return alertRepository.findWithFilters(
-            filters.getDeviceId(),
-            filters.getAlertType(),
-            filters.getSeverity(),
-            filters.getStartDate(),
-            filters.getEndDate(),
-            pageable
-        );
+    public Page<Alert> getAlertsWithFilters(String deviceId, String alertType, String severity, 
+                                          LocalDateTime startDate, LocalDateTime endDate, Pageable pageable) {
+        logger.debug("Fetching alerts with filters - deviceId: {}, alertType: {}, severity: {}, startDate: {}, endDate: {}", 
+                    deviceId, alertType, severity, startDate, endDate);
+        
+        // Check if all filters are empty/null
+        if (isEmptyFilter(deviceId, alertType, severity, startDate, endDate)) {
+            return getAllAlerts(pageable);
+        }
+        
+        return alertRepository.findWithFilters(deviceId, alertType, severity, startDate, endDate, pageable);
+    }
+    
+    /**
+     * Check if all filter parameters are empty or null
+     */
+    private boolean isEmptyFilter(String deviceId, String alertType, String severity, 
+                                 LocalDateTime startDate, LocalDateTime endDate) {
+        return (deviceId == null || deviceId.trim().isEmpty()) && 
+               (alertType == null || alertType.trim().isEmpty()) && 
+               (severity == null || severity.trim().isEmpty()) && 
+               startDate == null && 
+               endDate == null;
     }
     
     /**
@@ -240,15 +261,11 @@ public class AlertService {
     }
 
     /**
-     * Get alerts with filter (used by tests and controller)
+     * Get all alerts with pagination
      */
-    public Page<Alert> getAlertsWithFilter(AlertFilterRequest filter, Pageable pageable) {
-        if (filter == null || filter.isEmpty()) {
-            return getAllAlerts(pageable);
-        }
-
-        // Use existing method with filters
-        return getAlertsWithFilters(filter, pageable);
+    public Page<Alert> getAllAlerts(Pageable pageable) {
+        logger.debug("Fetching all alerts with pagination");
+        return alertRepository.findAll(pageable);
     }
 
     /**
@@ -257,13 +274,5 @@ public class AlertService {
     public Optional<Alert> getAlertById(Long id) {
         logger.debug("Fetching alert by ID: {}", id);
         return alertRepository.findById(id);
-    }
-
-    /**
-     * Get all alerts with pagination
-     */
-    public Page<Alert> getAllAlerts(Pageable pageable) {
-        logger.debug("Fetching all alerts with pagination");
-        return alertRepository.findAll(pageable);
     }
 } 

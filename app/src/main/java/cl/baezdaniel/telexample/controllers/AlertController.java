@@ -1,6 +1,5 @@
 package cl.baezdaniel.telexample.controllers;
 
-import cl.baezdaniel.telexample.dto.AlertFilterRequest;
 import cl.baezdaniel.telexample.entities.Alert;
 import cl.baezdaniel.telexample.services.AlertService;
 import org.slf4j.Logger;
@@ -19,6 +18,10 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * REST controller for Alert management API endpoints
+ * Provides paginated access to alerts with advanced filtering and sorting
+ */
 @RestController
 @RequestMapping("/api/alerts")
 public class AlertController {
@@ -83,8 +86,7 @@ public class AlertController {
             
             // If filters are provided, use filtered query
             if (alertType != null || severity != null || startDate != null || endDate != null) {
-                AlertFilterRequest filters = new AlertFilterRequest(deviceId, alertType, severity, startDate, endDate);
-                alerts = alertService.getAlertsWithFilters(filters, pageable);
+                alerts = alertService.getAlertsWithFilters(deviceId, alertType, severity, startDate, endDate, pageable);
             } else {
                 // Simple device-based query
                 alerts = alertService.getAlertsForDevice(deviceId, pageable);
@@ -130,9 +132,8 @@ public class AlertController {
             Sort sorting = parseSort(sort);
             Pageable pageable = PageRequest.of(page, pageSize, sorting);
 
-            // Use filtered query
-            AlertFilterRequest filters = new AlertFilterRequest(deviceId, alertType, severity, startDate, endDate);
-            Page<Alert> alerts = alertService.getAlertsWithFilters(filters, pageable);
+            // Use filtered query with all parameters
+            Page<Alert> alerts = alertService.getAlertsWithFilters(deviceId, alertType, severity, startDate, endDate, pageable);
 
             logger.info("Found {} alerts total (page {}/{})", 
                        alerts.getNumberOfElements(), alerts.getNumber() + 1, alerts.getTotalPages());

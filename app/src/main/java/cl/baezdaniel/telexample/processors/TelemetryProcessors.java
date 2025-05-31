@@ -1,6 +1,5 @@
 package cl.baezdaniel.telexample.processors;
 
-import cl.baezdaniel.telexample.dto.AlertCreationRequest;
 import cl.baezdaniel.telexample.entities.Telemetry;
 import cl.baezdaniel.telexample.events.TelemetryEvent;
 import cl.baezdaniel.telexample.services.AlertService;
@@ -24,85 +23,60 @@ public class TelemetryProcessors {
     private AlertService alertService;
 
     /**
-     * Anomaly Detection: Check for suspicious speed changes or location jumps
+     * Processor 1: Anomaly Detection
+     * Detects data anomalies and suspicious patterns in telemetry data
      */
     @EventListener
     @Async("telemetryTaskExecutor")
-    public void detectAnomalies(TelemetryEvent event) {
-        if (event == null || event.getTelemetry() == null) {
-            logger.error("Error in anomaly detection: Received null telemetry event");
-            return;
-        }
-
-        Telemetry telemetry = event.getTelemetry();
-        String deviceId = telemetry.getDeviceId();
-
+    public void detectAnomaly(TelemetryEvent event) {
         try {
-            logger.info("🔍 [Thread: {}] Processing anomaly detection for device: {}",
-                    Thread.currentThread().getName(), deviceId);
-
-            // Simulate anomaly detection logic
-            double lat = telemetry.getLatitude();
-            double lon = telemetry.getLongitude();
-
-            // Example: Check if coordinates are outside expected ranges
-            if (lat < -90 || lat > 90 || lon < -180 || lon > 180) {
-                String message = String.format("Invalid coordinates detected: lat=%s, lon=%s", lat, lon);
-                logger.warn("🚨 ANOMALY DETECTED: {}", message);
-
-                // Create alert for invalid coordinates
-                try {
-                    AlertCreationRequest alertRequest = AlertCreationRequest.builder()
-                            .deviceId(deviceId)
-                            .alertType("ANOMALY")
-                            .message(message)
-                            .latitude(lat)
-                            .longitude(lon)
-                            .processorName("AnomalyDetection")
-                            .metadata(createMetadataJson(telemetry))
-                            .build();
-
-                    alertService.createAlert(alertRequest);
-                    logger.info("🚨 Alert created for device {}: Invalid coordinates", deviceId);
-                } catch (Exception e) {
-                    logger.error("Failed to create alert for device {}: {}", deviceId, e.getMessage());
-                }
+            if (event == null || event.getTelemetry() == null) {
+                logger.error("Error in anomaly detection: Received null telemetry event");
+                return;
             }
-
-            // Example: Check for rapid movement (would need previous location in real
-            // implementation)
-            // This is just a demo - you'd fetch previous telemetry and calculate
-            // distance/time
-            if (Math.abs(lat) > 80) { // Extreme latitude
-                String message = String.format("Extreme latitude detected: %s", lat);
-                logger.warn("🚨 ANOMALY DETECTED: {}", message);
-
-                // Create alert for extreme location
-                try {
-                    AlertCreationRequest alertRequest = AlertCreationRequest.builder()
-                            .deviceId(deviceId)
-                            .alertType("ANOMALY")
-                            .message(message)
-                            .latitude(lat)
-                            .longitude(lon)
-                            .processorName("AnomalyDetection")
-                            .metadata(createMetadataJson(telemetry))
-                            .build();
-
-                    alertService.createAlert(alertRequest);
-                    logger.info("🚨 Alert created for device {}: Extreme location", deviceId);
-                } catch (Exception e) {
-                    logger.error("Failed to create alert for device {}: {}", deviceId, e.getMessage());
-                }
+            
+            Telemetry telemetry = event.getTelemetry();
+            logger.info("🔍 [Thread: {}] Processing anomaly detection for device: {}", 
+                       Thread.currentThread().getName(), telemetry.getDeviceId());
+            
+            // Anomaly detection logic
+            if (isInvalidCoordinates(telemetry.getLatitude(), telemetry.getLongitude())) {
+                logger.warn("🚨 ANOMALY DETECTED: Invalid coordinates detected: lat={}, lon={}", 
+                           telemetry.getLatitude(), telemetry.getLongitude());
+                
+                alertService.createAlert(
+                    telemetry.getDeviceId(),
+                    "ANOMALY",
+                    "Invalid coordinates detected",
+                    telemetry.getLatitude(),
+                    telemetry.getLongitude(),
+                    "AnomDetProcessor",
+                    null
+                );
+                
+                logger.info("🚨 Alert created for device {}: Invalid coordinates", telemetry.getDeviceId());
             }
-
-            // Simulate processing time
-
+            
+            if (isExtremeLocation(telemetry.getLatitude())) {
+                logger.warn("🚨 ANOMALY DETECTED: Extreme latitude detected: {}", telemetry.getLatitude());
+                
+                alertService.createAlert(
+                    telemetry.getDeviceId(),
+                    "ANOMALY", 
+                    "Extreme location detected",
+                    telemetry.getLatitude(),
+                    telemetry.getLongitude(),
+                    "AnomDetProcessor",
+                    null
+                );
+                
+                logger.info("🚨 Alert created for device {}: Extreme location", telemetry.getDeviceId());
+            }
+            
         } catch (Exception e) {
-            logger.error("Error in anomaly detection for device {}: {}", deviceId, e.getMessage());
+            logger.error("Error in anomaly detection: {}", e.getMessage());
         }
     }
-
 
     /**
      * Alert System: Process real-time alerts and notifications
@@ -142,19 +116,18 @@ public class TelemetryProcessors {
 
                 // Create geofence alert
                 try {
-                    AlertCreationRequest alertRequest = AlertCreationRequest.builder()
-                            .deviceId(deviceId)
-                            .alertType("GEOFENCE")
-                            .message(message)
-                            .latitude(lat)
-                            .longitude(lon)
-                            .processorName("AlertProcessor")
-                            .metadata(String.format(
-                                    "{\"restrictedZone\": {\"lat\": %s, \"lon\": %s}, \"distance\": %.4f}",
-                                    restrictedLat, restrictedLon, distanceKm))
-                            .build();
-
-                    alertService.createAlert(alertRequest);
+                    alertService.createAlert(
+                        deviceId,
+                        "GEOFENCE",
+                        message,
+                        lat,
+                        lon,
+                        "AlertProcessor",
+                        String.format(
+                            "{\"restrictedZone\": {\"lat\": %s, \"lon\": %s}, \"distance\": %.4f}",
+                            restrictedLat, restrictedLon, distanceKm
+                        )
+                    );
                     logger.info("🚨 Alert created for device {}: Geofence violation", deviceId);
                 } catch (Exception e) {
                     logger.error("Failed to create geofence alert for device {}: {}", deviceId, e.getMessage());
@@ -198,10 +171,12 @@ public class TelemetryProcessors {
 
     // Helper methods
 
-    private String createMetadataJson(Telemetry telemetry) {
-        return String.format(
-                "{\"timestamp\": \"%s\", \"deviceType\": \"tracker\", \"coordinates\": {\"lat\": %s, \"lon\": %s}}",
-                telemetry.getTimestamp(), telemetry.getLatitude(), telemetry.getLongitude());
+    private boolean isInvalidCoordinates(double lat, double lon) {
+        return lat < -90 || lat > 90 || lon < -180 || lon > 180;
+    }
+
+    private boolean isExtremeLocation(double lat) {
+        return Math.abs(lat) > 80;
     }
 
     public static double calculateDistanceKm(double lat1, double lon1, double lat2, double lon2) {

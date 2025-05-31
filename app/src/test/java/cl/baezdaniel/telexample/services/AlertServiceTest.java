@@ -1,7 +1,5 @@
 package cl.baezdaniel.telexample.services;
 
-import cl.baezdaniel.telexample.dto.AlertCreationRequest;
-import cl.baezdaniel.telexample.dto.AlertFilterRequest;
 import cl.baezdaniel.telexample.entities.Alert;
 import cl.baezdaniel.telexample.repositories.AlertRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -14,16 +12,21 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
+import static org.assertj.core.api.Assertions.*;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
+/**
+ * Unit tests for AlertService
+ */
 @ExtendWith(MockitoExtension.class)
 class AlertServiceTest {
 
@@ -33,99 +36,160 @@ class AlertServiceTest {
     @InjectMocks
     private AlertService alertService;
 
-    private AlertCreationRequest validRequest;
-    private Alert existingAlert;
+    private String deviceId;
+    private String alertType;
+    private String message;
+    private Double latitude;
+    private Double longitude;
+    private String processorName;
+    private String metadata;
 
     @BeforeEach
     void setUp() {
-        validRequest = new AlertCreationRequest(
-            "DEVICE001", 
-            "ANOMALY", 
-            "Extreme coordinate detected", 
-            -1000.0, 
-            -1000.0, 
-            "AnomalyDetectionProcessor",
-            "{\"severity\": \"HIGH\"}"
-        );
-
-        existingAlert = new Alert();
-        existingAlert.setId(1L);
-        existingAlert.setDeviceId("DEVICE001");
-        existingAlert.setAlertType("ANOMALY");
-        existingAlert.setMessage("Extreme coordinate detected");
-        existingAlert.setLatitude(-1000.0);
-        existingAlert.setLongitude(-1000.0);
-        existingAlert.setProcessorName("AnomalyDetectionProcessor");
-        existingAlert.setMetadata("{\"severity\": \"HIGH\"}");
-        existingAlert.setSeverity("HIGH");
-        existingAlert.setCreatedAt(LocalDateTime.now());
-        existingAlert.setFingerprint("test-fingerprint");
+        // Set up test data
+        deviceId = "DEVICE001";
+        alertType = "ANOMALY";
+        message = "Test anomaly message";
+        latitude = 40.7128;
+        longitude = -74.0060;
+        processorName = "TestProcessor";
+        metadata = "{\"test\": \"data\"}";
+        
+        // Set retention months for testing
+        ReflectionTestUtils.setField(alertService, "retentionMonths", 3);
     }
 
     @Test
-    void createAlert_NewAlert_Success() {
+    void testCreateAlert_Success() {
         // Given
+        Alert mockAlert = new Alert(deviceId, alertType, "MEDIUM", message, latitude, longitude, processorName, "fingerprint123", metadata);
+        mockAlert.setId(1L);
+        
         when(alertRepository.findByFingerprint(anyString())).thenReturn(Optional.empty());
-        when(alertRepository.save(any(Alert.class))).thenReturn(existingAlert);
+        when(alertRepository.save(any(Alert.class))).thenReturn(mockAlert);
 
         // When
-        Alert result = alertService.createAlert(validRequest);
+        Alert result = alertService.createAlert(deviceId, alertType, message, latitude, longitude, processorName, metadata);
 
         // Then
-        assertNotNull(result);
-        assertEquals("DEVICE001", result.getDeviceId());
-        assertEquals("ANOMALY", result.getAlertType());
-        assertEquals("HIGH", result.getSeverity());
+        assertThat(result).isNotNull();
+        assertThat(result.getDeviceId()).isEqualTo(deviceId);
+        assertThat(result.getAlertType()).isEqualTo(alertType);
+        assertThat(result.getMessage()).isEqualTo(message);
+        assertThat(result.getLatitude()).isEqualTo(latitude);
+        assertThat(result.getLongitude()).isEqualTo(longitude);
+        assertThat(result.getProcessorName()).isEqualTo(processorName);
+        assertThat(result.getMetadata()).isEqualTo(metadata);
+        
         verify(alertRepository).findByFingerprint(anyString());
         verify(alertRepository).save(any(Alert.class));
     }
 
     @Test
-    void createAlert_DuplicateAlert_ReturnsExisting() {
+    void testCreateAlert_NullDeviceId() {
+        // When & Then
+        assertThatThrownBy(() -> alertService.createAlert(null, alertType, message, latitude, longitude, processorName, metadata))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Device ID cannot be null or empty");
+        
+        verifyNoInteractions(alertRepository);
+    }
+
+    @Test
+    void testCreateAlert_EmptyDeviceId() {
+        // When & Then
+        assertThatThrownBy(() -> alertService.createAlert("", alertType, message, latitude, longitude, processorName, metadata))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Device ID cannot be null or empty");
+        
+        verifyNoInteractions(alertRepository);
+    }
+
+    @Test
+    void testCreateAlert_NullAlertType() {
+        // When & Then
+        assertThatThrownBy(() -> alertService.createAlert(deviceId, null, message, latitude, longitude, processorName, metadata))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Alert type cannot be null or empty");
+        
+        verifyNoInteractions(alertRepository);
+    }
+
+    @Test
+    void testCreateAlert_EmptyAlertType() {
+        // When & Then
+        assertThatThrownBy(() -> alertService.createAlert(deviceId, "", message, latitude, longitude, processorName, metadata))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Alert type cannot be null or empty");
+        
+        verifyNoInteractions(alertRepository);
+    }
+
+    @Test
+    void testCreateAlert_NullMessage() {
+        // When & Then
+        assertThatThrownBy(() -> alertService.createAlert(deviceId, alertType, null, latitude, longitude, processorName, metadata))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Alert message cannot be null or empty");
+        
+        verifyNoInteractions(alertRepository);
+    }
+
+    @Test
+    void testCreateAlert_EmptyMessage() {
+        // When & Then
+        assertThatThrownBy(() -> alertService.createAlert(deviceId, alertType, "", latitude, longitude, processorName, metadata))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Alert message cannot be null or empty");
+        
+        verifyNoInteractions(alertRepository);
+    }
+
+    @Test
+    void testCreateAlert_DuplicateAlert_ReturnsExisting() {
         // Given
+        Alert existingAlert = new Alert(deviceId, alertType, "MEDIUM", message, latitude, longitude, processorName, "fingerprint123", metadata);
+        existingAlert.setId(1L);
+        
         when(alertRepository.findByFingerprint(anyString())).thenReturn(Optional.of(existingAlert));
 
         // When
-        Alert result = alertService.createAlert(validRequest);
+        Alert result = alertService.createAlert(deviceId, alertType, message, latitude, longitude, processorName, metadata);
 
         // Then
-        assertNotNull(result);
-        assertEquals(existingAlert.getId(), result.getId());
+        assertThat(result).isNotNull();
+        assertThat(result.getId()).isEqualTo(existingAlert.getId());
+        assertThat(result.getDeviceId()).isEqualTo(deviceId);
+        
         verify(alertRepository).findByFingerprint(anyString());
         verify(alertRepository, never()).save(any(Alert.class));
     }
 
     @Test
-    void createAlert_NullRequest_ThrowsException() {
-        // When & Then
-        assertThrows(IllegalArgumentException.class, () -> alertService.createAlert(null));
-    }
-
-    @Test
-    void getAlertsWithFilter_ValidFilter_Success() {
+    void testGetAlertsWithFilters_ValidFilters_Success() {
         // Given
-        AlertFilterRequest filter = new AlertFilterRequest();
-        filter.setDeviceId("DEVICE001");
-        filter.setAlertType("ANOMALY");
-        filter.setSeverity("HIGH");
-        filter.setStartDate(LocalDateTime.now().minusDays(1));
-        filter.setEndDate(LocalDateTime.now());
+        String testDeviceId = "DEVICE001";
+        String testAlertType = "ANOMALY";
+        String testSeverity = "HIGH";
+        LocalDateTime startDate = LocalDateTime.now().minusDays(1);
+        LocalDateTime endDate = LocalDateTime.now();
 
         Pageable pageable = PageRequest.of(0, 10);
-        List<Alert> alerts = Arrays.asList(existingAlert);
+        Alert mockAlert = new Alert("DEVICE001", "ANOMALY", "HIGH", "Test message", 40.0, -74.0, "TestProcessor", "fingerprint", null);
+        List<Alert> alerts = Arrays.asList(mockAlert);
         Page<Alert> alertPage = new PageImpl<>(alerts, pageable, alerts.size());
 
         when(alertRepository.findWithFilters(
-            eq(filter.getDeviceId()), 
-            eq(filter.getAlertType()), 
-            eq(filter.getSeverity()), 
-            eq(filter.getStartDate()), 
-            eq(filter.getEndDate()), 
+            eq(testDeviceId), 
+            eq(testAlertType), 
+            eq(testSeverity), 
+            eq(startDate), 
+            eq(endDate), 
             same(pageable)))
             .thenReturn(alertPage);
 
         // When
-        Page<Alert> result = alertService.getAlertsWithFilter(filter, pageable);
+        Page<Alert> result = alertService.getAlertsWithFilters(testDeviceId, testAlertType, testSeverity, startDate, endDate, pageable);
 
         // Then
         assertNotNull(result);
@@ -134,37 +198,44 @@ class AlertServiceTest {
     }
 
     @Test
-    void getAlertsWithFilter_EmptyFilter_ReturnsAll() {
-        // Given
-        AlertFilterRequest filter = new AlertFilterRequest();
+    void testGetAlertsWithFilters_EmptyFilters_ReturnsAll() {
+        // Given - all filter parameters are null/empty
+        String testDeviceId = null;
+        String testAlertType = "";
+        String testSeverity = null;
+        LocalDateTime startDate = null;
+        LocalDateTime endDate = null;
 
         Pageable pageable = PageRequest.of(0, 10);
-        List<Alert> alerts = Arrays.asList(existingAlert);
+        Alert mockAlert = new Alert("DEVICE001", "ANOMALY", "HIGH", "Test message", 40.0, -74.0, "TestProcessor", "fingerprint", null);
+        List<Alert> alerts = Arrays.asList(mockAlert);
         Page<Alert> alertPage = new PageImpl<>(alerts, pageable, alerts.size());
 
         when(alertRepository.findAll(same(pageable))).thenReturn(alertPage);
 
         // When
-        Page<Alert> result = alertService.getAlertsWithFilter(filter, pageable);
+        Page<Alert> result = alertService.getAlertsWithFilters(testDeviceId, testAlertType, testSeverity, startDate, endDate, pageable);
 
         // Then
         assertNotNull(result);
         assertEquals(1, result.getTotalElements());
-        assertEquals(existingAlert, result.getContent().get(0));
+        assertThat(result.getContent().get(0)).isNotNull();
         verify(alertRepository).findAll(same(pageable));
+        verify(alertRepository, never()).findWithFilters(any(), any(), any(), any(), any(), any());
     }
 
     @Test
     void getAlertById_ExistingId_Success() {
         // Given
-        when(alertRepository.findById(1L)).thenReturn(Optional.of(existingAlert));
+        Alert mockAlert = new Alert("DEVICE001", "ANOMALY", "HIGH", "Test message", 40.0, -74.0, "TestProcessor", "fingerprint", null);
+        when(alertRepository.findById(1L)).thenReturn(Optional.of(mockAlert));
 
         // When
         Optional<Alert> result = alertService.getAlertById(1L);
 
         // Then
         assertTrue(result.isPresent());
-        assertEquals(existingAlert.getId(), result.get().getId());
+        assertEquals("DEVICE001", result.get().getDeviceId());
     }
 
     @Test
@@ -183,7 +254,8 @@ class AlertServiceTest {
     void getAllAlerts_Success() {
         // Given
         Pageable pageable = PageRequest.of(0, 10);
-        List<Alert> alerts = Arrays.asList(existingAlert);
+        Alert mockAlert = new Alert("DEVICE001", "ANOMALY", "HIGH", "Test message", 40.0, -74.0, "TestProcessor", "fingerprint", null);
+        List<Alert> alerts = Arrays.asList(mockAlert);
         Page<Alert> alertPage = new PageImpl<>(alerts, pageable, alerts.size());
 
         when(alertRepository.findAll(pageable)).thenReturn(alertPage);
@@ -194,6 +266,7 @@ class AlertServiceTest {
         // Then
         assertNotNull(result);
         assertEquals(1, result.getTotalElements());
+        assertEquals("DEVICE001", result.getContent().get(0).getDeviceId());
     }
 
     @Test
@@ -212,29 +285,27 @@ class AlertServiceTest {
     }
 
     @Test
-    void generateFingerprint_SameInputs_SameFingerprint() {
-        // Given
-        AlertCreationRequest request1 = new AlertCreationRequest("DEVICE001", "ANOMALY", "Test message", 10.0, 20.0, "Processor", null);
-        AlertCreationRequest request2 = new AlertCreationRequest("DEVICE001", "ANOMALY", "Test message", 10.0, 20.0, "Processor", null);
+    void testFingerprintConsistency() {
+        // Given - create two alerts with same parameters
+        String testDeviceId = "DEVICE001";
+        String testAlertType = "ANOMALY";
+        String testMessage = "Test message";
+        Double testLat = 10.0;
+        Double testLon = 20.0;
+        String testProcessor = "Processor";
+        
+        Alert mockAlert1 = new Alert(testDeviceId, testAlertType, "MEDIUM", testMessage, testLat, testLon, testProcessor, "fingerprint123", null);
+        Alert mockAlert2 = new Alert(testDeviceId, testAlertType, "MEDIUM", testMessage, testLat, testLon, testProcessor, "fingerprint123", null);
+        
+        when(alertRepository.findByFingerprint(anyString())).thenReturn(Optional.empty());
+        when(alertRepository.save(any(Alert.class))).thenReturn(mockAlert1, mockAlert2);
 
-        // When
-        Alert alert1 = new Alert();
-        alert1.setDeviceId(request1.getDeviceId());
-        alert1.setAlertType(request1.getAlertType());
-        alert1.setMessage(request1.getMessage());
-        alert1.setLatitude(request1.getLatitude());
-        alert1.setLongitude(request1.getLongitude());
+        // When - create alerts with same parameters
+        Alert alert1 = alertService.createAlert(testDeviceId, testAlertType, testMessage, testLat, testLon, testProcessor, null);
+        Alert alert2 = alertService.createAlert(testDeviceId, testAlertType, testMessage, testLat, testLon, testProcessor, null);
 
-        Alert alert2 = new Alert();
-        alert2.setDeviceId(request2.getDeviceId());
-        alert2.setAlertType(request2.getAlertType());
-        alert2.setMessage(request2.getMessage());
-        alert2.setLatitude(request2.getLatitude());
-        alert2.setLongitude(request2.getLongitude());
-
-        // Then
-        // Both alerts should generate the same fingerprint for deduplication
-        assertNotNull(alert1);
-        assertNotNull(alert2);
+        // Then - both alerts should have been created successfully
+        assertThat(alert1).isNotNull();
+        assertThat(alert2).isNotNull();
     }
 } 
