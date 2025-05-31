@@ -27,8 +27,16 @@ dependencies {
     // H2 database (replaces SQLite for better concurrency)
     implementation 'com.h2database:h2'
     
+    // Rate limiting with Bucket4j
+    implementation 'com.bucket4j:bucket4j-core:8.7.0'
+    implementation 'com.bucket4j:bucket4j-caffeine:8.7.0'
+
+    // Caffeine cache for in-memory storage
+    implementation 'com.github.ben-manes.caffeine:caffeine:3.1.8'
+    
     // Testing
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.springframework.boot:spring-boot-starter-webflux' // For WebTestClient in reactive tests
     testImplementation 'org.awaitility:awaitility:4.2.0'
     testImplementation 'org.junit.jupiter:junit-jupiter'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
